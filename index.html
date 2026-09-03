@@ -35,7 +35,7 @@ th{color:#8f9aa5;font-size:12px;text-transform:uppercase}
 <div class="wrap">
 <div class="card">
 <h1>🎯 Filtru Value Bets</h1>
-<div class="muted">Analiză pe baza probabilităților Bzzoiro și cotelor de consens.</div>
+<div class="muted">🔎 Modul analiză: afișează toate edge-urile calculabile, pozitive și negative.</div>
 <div style="margin-top:16px">
 <label>Cheia API Bzzoiro</label>
 <input id="api_key" type="password" autocomplete="off" placeholder="Token API">
@@ -63,27 +63,27 @@ th{color:#8f9aa5;font-size:12px;text-transform:uppercase}
 </div>
 
 <div>
-<label>Probabilitate minimă (%)</label>
+<label>Probabilitate minimă (%) — ignorată în analiza completă</label>
 <input id="min_prob" type="number" min="0" max="100" step="0.1" value="0">
 </div>
 
 <div>
-<label>Edge minim (pp)</label>
+<label>Edge minim (pp) — ignorat în analiza completă</label>
 <input id="min_edge" type="number" step="0.1" value="0">
 </div>
 
 <div>
-<label>Cotă minimă</label>
+<label>Cotă minimă — ignorată în analiza completă</label>
 <input id="odds_min" type="number" min="1" step="0.01" value="1">
 </div>
 
 <div>
-<label>Cotă maximă</label>
+<label>Cotă maximă — ignorată în analiza completă</label>
 <input id="odds_max" type="number" min="1" step="0.01" value="100">
 </div>
 
 <div>
-<label>Max. selecții</label>
+<label>Max. selecții — ignorat în analiza completă</label>
 <input id="max_picks" type="number" min="1" value="30">
 </div>
 
@@ -220,7 +220,7 @@ async function search(){
     if(leagues.includes(current)) document.getElementById("league").value=current;
 
     summary.textContent=
-      `${(data.candidates||[]).length} selecții au trecut filtrele · `+
+      `${(data.candidates||[]).length} edge-uri calculabile · `+
       `${data.events||0} meciuri · ${data.predictions||0} predicții · ${leagues.length} ligi · `+
       `${data.matched||0} potriviri · ${data.with_probabilities||0} cu probabilități · ${data.with_odds||0} cu cote`;
 
@@ -232,7 +232,7 @@ async function search(){
         `<td>${esc(x.market)} · <b>${esc(x.pick)}</b></td>`+
         `<td>${Number(x.prob).toFixed(1)}%</td>`+
         `<td>${Number(x.odds).toFixed(2)}</td>`+
-        `<td class="edge good">+${Number(x.edge).toFixed(1)} pp</td>`;
+        `<td class="edge ${Number(x.edge)>=0?"good":"bad"}">${Number(x.edge)>=0?"+":""}${Number(x.edge).toFixed(1)} pp</td>`;
       rows.appendChild(tr);
     });
 
