@@ -141,17 +141,15 @@ def search():
         if any(v is not None for v in eo.values()): withodds+=1
 
         # Analyze EVERY prediction belonging to this event.
-        seen=set()
+        # IMPORTANT: do not deduplicate by market/pick/odds.
+        # Bzzoiro can return multiple prediction records for the same event,
+        # and the user wants all prediction records to be evaluated.
         event_has_prob=False
         for p in ps:
             ops=options(p)
             if ops: event_has_prob=True
             for mk,pick,prob,okey in ops:
-                # Keep every prediction-derived market candidate.
-                # If identical output occurs twice, keep the strongest probability.
-                sig=(mk,pick,okey)
-                if sig in seen: continue
-                seen.add(sig)
+                # Every prediction record is evaluated independently.
                 tested+=1
 
                 if mf!="all":
