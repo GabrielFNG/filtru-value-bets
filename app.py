@@ -112,22 +112,36 @@ def event_odds(e):
         r[f"under_{line.replace('.', '_')}"] = None
 
     # Direct event fields.
-    r["home"] = number(first(e, "odds_home", "home_odds", "home_price"))
-    r["draw"] = number(first(e, "odds_draw", "draw_odds", "draw_price"))
-    r["away"] = number(first(e, "odds_away", "away_odds", "away_price"))
-    r["gg_yes"] = number(first(e, "odds_btts_yes", "odds_gg_yes", "btts_yes_odds"))
-    r["gg_no"] = number(first(e, "odds_btts_no", "odds_gg_no", "btts_no_odds"))
+    r["home"] = number(first(e, "odds_home", "home_odds", "home_price", "home_win"))
+    r["draw"] = number(first(e, "odds_draw", "draw_odds", "draw_price", "draw_win"))
+    r["away"] = number(first(e, "odds_away", "away_odds", "away_price", "away_win"))
+    r["gg_yes"] = number(first(e, "odds_btts_yes", "odds_gg_yes", "btts_yes_odds", "btts_yes"))
+    r["gg_no"] = number(first(e, "odds_btts_no", "odds_gg_no", "btts_no_odds", "btts_no"))
 
     o = first(e, "odds", "consensus_odds", "prices") or {}
     mw = first(o, "match_winner", "match_result", "1x2", "winner") or {}
     bb = first(o, "btts", "gg", "both_teams_to_score") or {}
     ou = first(o, "over_under", "total_goals", "goals") or {}
 
-    r["home"] = r["home"] or number(first(mw, "home", "HOME", "1"))
-    r["draw"] = r["draw"] or number(first(mw, "draw", "DRAW", "x", "X"))
-    r["away"] = r["away"] or number(first(mw, "away", "AWAY", "2"))
+    r["home"] = r["home"] or number(first(mw, "home", "HOME", "1", "home_win"))
+    r["draw"] = r["draw"] or number(first(mw, "draw", "DRAW", "x", "X", "draw"))
+    r["away"] = r["away"] or number(first(mw, "away", "AWAY", "2", "away_win"))
     r["gg_yes"] = r["gg_yes"] or number(first(bb, "yes", "YES", "btts_yes", "gg_yes"))
     r["gg_no"] = r["gg_no"] or number(first(bb, "no", "NO", "btts_no", "gg_no"))
+
+    # BSD's current consensus summary also exposes these as flat keys:
+    # home_win, draw, away_win, over_15_goals, under_15_goals, ...
+    if isinstance(o, dict):
+        r["home"] = r["home"] or number(o.get("home_win"))
+        r["draw"] = r["draw"] or number(o.get("draw"))
+        r["away"] = r["away"] or number(o.get("away_win"))
+        r["gg_yes"] = r["gg_yes"] or number(o.get("btts_yes"))
+        r["gg_no"] = r["gg_no"] or number(o.get("btts_no"))
+        for line in ("0.5", "1.5", "2.5", "3.5", "4.5"):
+            tag = line.replace(".", "")
+            key = line.replace(".", "_")
+            r[f"over_{key}"] = r[f"over_{key}"] or number(o.get(f"over_{tag}_goals"))
+            r[f"under_{key}"] = r[f"under_{key}"] or number(o.get(f"under_{tag}_goals"))
 
     if isinstance(ou, dict):
         for line in ("0.5", "1.5", "2.5", "3.5", "4.5"):
@@ -184,6 +198,15 @@ def pred1x2(p):
         "draw": "draw", "tie": "draw",
         "away": "away", "away_win": "away", "away team": "away",
     }
+    # Current public BSD calls can be phrased as "Team to win or draw".
+    # For strict 1X2 we only map unambiguous single-outcome phrases.
+    if pick not in mapping:
+        if "home team to win" in pick or "home to win" in pick:
+            pick = "home"
+        elif "away team to win" in pick or "away to win" in pick:
+            pick = "away"
+        elif pick in ("home team", "away team"):
+            pick = mapping[pick]
     pick = mapping.get(pick)
     vals = [("home", ph), ("draw", pd), ("away", pa)]
     vals = [v for v in vals if v[1] is not None]
