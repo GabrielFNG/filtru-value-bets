@@ -104,6 +104,8 @@ def search():
         maxp=max(1,int(q.get("max_picks",30)))
     except:return jsonify({"error":"Filtre numerice invalide"}),400
 
+    mode=str(q.get("mode","filtered"))
+    if mode not in ("filtered","all_edges"): mode="filtered"
     mf=str(q.get("market","all")); sf=str(q.get("selection","all"))
     lf=str(q.get("line","2.5")); league_filter=str(q.get("league","all"))
 
@@ -168,14 +170,16 @@ def search():
                 odd=eo.get(okey)
                 if odd is None or odd<=1: continue
 
-                # EXPLORATION MODE:
-                # Return every calculable edge, positive OR negative.
-                # Probability, edge and odds thresholds are intentionally
-                # NOT used to remove rows. We want the full edge distribution
-                # first; filtering can be done after we inspect the data.
-
                 implied=100/odd
                 edge=prob-implied
+
+                # v10: in normal Value Bets mode all numeric filters are active.
+                # In ALL_EDGES mode they are intentionally bypassed so the full
+                # calculable edge distribution can still be inspected.
+                if mode=="filtered":
+                    if prob < min_prob: continue
+                    if edge < min_edge: continue
+                    if odd < omin or odd > omax: continue
 
                 h,a=teams(e)
                 candidates.append({
@@ -186,14 +190,18 @@ def search():
                 })
         if event_has_prob: withprob+=1
 
-    # Sort by highest value first and cap only at the very end.
+    # Sort by highest value first and apply Max. selecții only in filtered mode.
     candidates.sort(key=lambda x:(x["edge"],x["prob"]),reverse=True)
+    if mode=="filtered":
+        candidates=candidates[:maxp]
 
     return jsonify({
         "candidates":candidates,
         "events":len(ev),"predictions":len(predictions),"leagues":leagues,
         "matched":matched,"with_probabilities":withprob,
-        "with_odds":withodds,"tested":tested,"mode":"ALL_EDGES","filters_applied":["days","league","market","selection","goal_line"]
+        "with_odds":withodds,"tested":tested,
+        "mode":"ALL_EDGES" if mode=="all_edges" else "FILTERED",
+        "filters_applied":(["days","league","market","selection","goal_line"] if mode=="all_edges" else ["days","league","market","selection","goal_line","min_prob","min_edge","odds_min","odds_max","max_picks"])
     })
 
 if __name__=="__main__":
