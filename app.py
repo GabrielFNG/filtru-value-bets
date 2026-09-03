@@ -167,8 +167,15 @@ def search():
 
                 odd=eo.get(okey)
                 if odd is None or odd<=1: continue
-                implied=100/odd; edge=prob-implied
-                if prob<min_prob or edge<min_edge or odd<omin or odd>omax: continue
+
+                # EXPLORATION MODE:
+                # Return every calculable edge, positive OR negative.
+                # Probability, edge and odds thresholds are intentionally
+                # NOT used to remove rows. We want the full edge distribution
+                # first; filtering can be done after we inspect the data.
+
+                implied=100/odd
+                edge=prob-implied
 
                 h,a=teams(e)
                 candidates.append({
@@ -183,10 +190,10 @@ def search():
     candidates.sort(key=lambda x:(x["edge"],x["prob"]),reverse=True)
 
     return jsonify({
-        "candidates":candidates[:maxp],
+        "candidates":candidates,
         "events":len(ev),"predictions":len(predictions),"leagues":leagues,
         "matched":matched,"with_probabilities":withprob,
-        "with_odds":withodds,"tested":tested
+        "with_odds":withodds,"tested":tested,"mode":"ALL_EDGES","filters_applied":["days","league","market","selection","goal_line"]
     })
 
 if __name__=="__main__":
