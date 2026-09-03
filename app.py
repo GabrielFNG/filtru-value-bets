@@ -73,7 +73,7 @@ def goal_candidates(p):
     return out
 
 @app.get("/")
-def index(): return send_from_directory("static","index.html")
+def index(): return send_from_directory(app.root_path,"index.html")
 
 @app.post("/api/search")
 def search():
