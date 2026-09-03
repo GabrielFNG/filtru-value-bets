@@ -5,20 +5,21 @@
 <title>Filtru Value Bets</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1015;color:#eee;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-.app{max-width:1050px;margin:auto;padding:16px}.card{background:#151a21;border:1px solid #27303b;border-radius:14px;padding:16px;margin-bottom:12px}
+.app{max-width:1100px;margin:auto;padding:16px}.card{background:#151a21;border:1px solid #27303b;border-radius:14px;padding:16px;margin-bottom:12px}
 h1{margin:0;font-size:24px}p{color:#929aa6;font-size:13px}.row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.field label{display:block;color:#9da5b0;font-size:11px;margin-bottom:5px}
 input,select,button{width:100%;padding:10px;border-radius:8px;border:1px solid #303946;background:#0e1218;color:#fff;font-size:14px}button{background:#1683ff;border:0;font-weight:800;cursor:pointer}
-.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{background:#202632;color:#b7bec8}.tabs button.active{background:#1683ff;color:#fff}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}.tabs button{background:#202632;color:#b7bec8;width:auto;padding:10px 14px}.tabs button.active{background:#1683ff;color:#fff}
 .status{font-size:12px;color:#aab2bd;line-height:1.5}.error{color:#ff7777}.ok{color:#55ed8b}
-.results{overflow:auto}.table{min-width:760px}.thead,.tr{display:grid;grid-template-columns:2fr 1.6fr .9fr .7fr .9fr .7fr;gap:8px;align-items:center}
+.results{overflow:auto}.table{min-width:850px}.thead,.tr{display:grid;grid-template-columns:1.8fr 1.15fr 1.55fr .75fr .85fr .75fr;gap:8px;align-items:center}
 .thead{color:#818a96;font-size:11px;padding:10px;border-bottom:1px solid #29313c}.tr{padding:12px 10px;border-bottom:1px solid #222a34;font-size:13px}.teams{font-weight:700}.meta{font-size:11px;color:#858e99;margin-top:3px}.market{color:#72b7ff}.green{color:#55ed8b;font-weight:800}.red{color:#ff6b6b;font-weight:800}
 .badge{display:inline-block;padding:4px 7px;border:1px solid #315e8a;border-radius:6px;color:#72b7ff;font-size:11px}
 .stats{display:flex;gap:18px;font-size:12px;color:#8d96a1;margin-top:8px}.note{font-size:11px;color:#6f7884;margin-top:8px}
-@media(max-width:650px){.row{grid-template-columns:1fr}.app{padding:10px}h1{font-size:20px}}
+.smallbtn{background:#202632;width:auto;padding:8px 12px;font-size:12px}
+@media(max-width:650px){.row{grid-template-columns:1fr}.app{padding:10px}h1{font-size:20px}.tabs button{flex:1}}
 </style>
 </head>
 <body><div class="app">
-<div class="card"><h1>🎯 Filtru Value Bets <span style="color:#55ed8b;font-size:12px">● API activ</span></h1><p>1X2 · GG · Peste/Sub goluri — cu filtrare după value.</p>
+<div class="card"><h1>🎯 Filtru Value Bets <span style="color:#55ed8b;font-size:12px">● API activ</span></h1><p>1X2 · GG · Peste/Sub goluri — cu filtrare după value și ligă.</p>
 <label style="font-size:11px;color:#9da5b0">API Key Bzzoiro</label><input id="key" type="password" placeholder="Lipește cheia aici">
 <label style="font-size:11px;color:#9da5b0"><input id="remember" type="checkbox" style="width:auto;margin-top:10px"> salvează cheia pe dispozitiv</label></div>
 
@@ -29,14 +30,15 @@ input,select,button{width:100%;padding:10px;border-radius:8px;border:1px solid #
 
 <div class="card"><div class="row">
 <div class="field"><label>Zile înainte</label><input id="days" type="number" min="0" max="7" value="1"></div>
+<div class="field"><label>Ligă / competiție</label><select id="league"><option value="all">Toate ligile</option></select></div>
 <div class="field"><label>Probabilitate minimă (%)</label><input id="prob" type="number" value="55"></div>
 <div class="field"><label>Edge minim (pp)</label><input id="edge" type="number" value="5"></div>
 <div class="field"><label>Cotă minimă</label><input id="omin" type="number" step=".01" value="1.50"></div>
 <div class="field"><label>Cotă maximă</label><input id="omax" type="number" step=".01" value="3.00"></div>
 <div class="field"><label>Max. selecții</label><input id="max" type="number" min="1" max="30" value="10"></div>
-</div><button id="run" style="margin-top:12px">🔎 Caută value bets</button><div id="status" class="status" style="margin-top:10px"></div></div>
+</div><div style="display:flex;gap:8px;margin-top:12px"><button id="run">🔎 Caută value bets</button><button id="clearLeague" class="smallbtn" type="button">↺ Toate ligile</button></div><div id="status" class="status" style="margin-top:10px"></div></div>
 
-<div class="card results"><div class="thead table"><div>MECI</div><div>PIAȚĂ / SELECȚIE</div><div>PROB. MODEL</div><div>COTĂ</div><div>PROB. IMPLICITĂ</div><div>EDGE</div></div><div id="results" class="table"></div></div>
+<div class="card results"><div class="thead table"><div>MECI</div><div>LIGĂ</div><div>PIAȚĂ / SELECȚIE</div><div>PROB.</div><div>COTĂ</div><div>EDGE</div></div><div id="results" class="table"></div></div>
 <div class="note">Aplicația folosește serverul propriu doar ca proxy pentru API; cheia nu este trimisă către alte servicii.</div>
 </div>
 <script>
@@ -52,8 +54,14 @@ document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{document.querySe
 try{let k=localStorage.getItem("bzz_key");if(k){$("key").value=k;$("remember").checked=true}}catch(e){}
 
 function date(d){return d.toISOString().slice(0,10)}
-function pct(x){x=Number(x);return Number.isFinite(x)?(x<=1?x*100:x):null}
-async function api(path,key,body){let r=await fetch(path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json","Authorization":"Token "+key},body:body?JSON.stringify(body):undefined});let t=await r.text();if(!r.ok)throw Error("HTTP "+r.status+" — "+t.slice(0,250));return JSON.parse(t)}
+async function api(path,key,body){let r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Token "+key},body:JSON.stringify(body)});let t=await r.text();if(!r.ok)throw Error("HTTP "+r.status+" — "+t.slice(0,250));return JSON.parse(t)}
+function updateLeagues(leagues){
+  const s=$("league"), current=s.value;
+  s.innerHTML='<option value="all">Toate ligile</option>';
+  (leagues||[]).forEach(l=>{let o=document.createElement("option");o.value=l;o.textContent=l;s.appendChild(o)});
+  if([...s.options].some(o=>o.value===current))s.value=current;
+}
+$("clearLeague").onclick=()=>{$("league").value="all"};
 
 $("run").onclick=async()=>{
  let key=$("key").value.trim();if(!key){$("status").innerHTML='<span class="error">Lipsește API Key-ul.</span>';return}
@@ -61,9 +69,10 @@ $("run").onclick=async()=>{
  let d=Number($("days").value)||1, a=new Date(),b=new Date(a.getTime()+d*86400000);
  $("status").textContent="Se caută meciurile și predicțiile...";$("results").innerHTML="";
  try{
-  let data=await api("/api/search",key,{date_from:date(a),date_to:date(b),market,selection:$("sel")?.value||"all",line:$("line")?.value||"2.5",min_prob:Number($("prob").value),min_edge:Number($("edge").value),odds_min:Number($("omin").value),odds_max:Number($("omax").value),max_picks:Number($("max").value)});
-  $("status").innerHTML=`<span class="ok">${data.candidates.length}</span> selecții au trecut filtrele · ${data.events} meciuri · ${data.predictions} predicții`;
-  $("results").innerHTML=data.candidates.map(c=>`<div class="tr"><div><div class="teams">${c.home} — ${c.away}</div><div class="meta">${c.kickoff||""}</div></div><div><span class="badge">${c.market}</span><div style="margin-top:5px;font-weight:700">${c.pick}</div></div><div class="green">${c.prob.toFixed(1)}%</div><div>${c.odds.toFixed(2)}</div><div>${c.implied.toFixed(1)}%</div><div class="${c.edge>=0?'green':'red'}">${c.edge>=0?'+':''}${c.edge.toFixed(1)}</div></div>`).join("");
+  let data=await api("/api/search",key,{date_from:date(a),date_to:date(b),market,selection:$("sel")?.value||"all",line:$("line")?.value||"2.5",league:$("league").value,min_prob:Number($("prob").value),min_edge:Number($("edge").value),odds_min:Number($("omin").value),odds_max:Number($("omax").value),max_picks:Number($("max").value)});
+  updateLeagues(data.leagues);
+  $("status").innerHTML=`<span class="ok">${data.candidates.length}</span> selecții au trecut filtrele · ${data.events} meciuri · ${data.predictions} predicții · ${data.leagues.length} ligi`;
+  $("results").innerHTML=data.candidates.map(c=>`<div class="tr"><div><div class="teams">${c.home} — ${c.away}</div><div class="meta">${c.kickoff||""}</div></div><div class="meta">${c.league||""}</div><div><span class="badge">${c.market}</span><div style="margin-top:5px;font-weight:700">${c.pick}</div></div><div class="green">${Number(c.prob).toFixed(1)}%</div><div>${Number(c.odds).toFixed(2)}</div><div class="${c.edge>=0?'green':'red'}">${c.edge>=0?'+':''}${Number(c.edge).toFixed(1)}</div></div>`).join("");
  }catch(e){$("status").innerHTML='<span class="error">❌ '+e.message+'</span>'}
 };
 </script></body></html>
