@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import requests
 import os
+from datetime import datetime, timezone, timedelta
 
 app = Flask(__name__)
 
@@ -9,152 +10,144 @@ TIMEOUT = 25
 
 
 def api_get(path, api_key):
-    headers = {
-        "Authorization": f"Token {api_key}",
-        "Accept": "application/json",
-    }
-    r = requests.get(API_BASE + path, headers=headers, timeout=TIMEOUT)
+    r = requests.get(
+        API_BASE + path,
+        headers={"Authorization": f"Token {api_key}", "Accept": "application/json"},
+        timeout=TIMEOUT,
+    )
     r.raise_for_status()
     return r.json()
 
 
-def results(data):
+def get_results(data):
     if isinstance(data, dict):
         return data.get("results", [])
     return data if isinstance(data, list) else []
 
 
-def paginate(path, api_key):
-    """Read all pages returned by Bzzoiro, while keeping a safety limit."""
+def get_all(path, api_key, max_pages=10):
     out = []
-    url = path
-    for _ in range(10):
-        data = api_get(url, api_key)
-        page = results(data)
-        out.extend(page)
+    next_path = path
+
+    for _ in range(max_pages):
+        data = api_get(next_path, api_key)
+        out.extend(get_results(data))
 
         if not isinstance(data, dict) or not data.get("next"):
             break
 
         nxt = data["next"]
-        # Bzzoiro normally returns an absolute next URL.
-        if nxt.startswith("https://sports.bzzoiro.com"):
-            url = nxt.replace("https://sports.bzzoiro.com/api", "", 1)
-            if not url.startswith("/"):
-                url = "/" + url
+        if nxt.startswith("https://sports.bzzoiro.com/api"):
+            next_path = nxt.split("https://sports.bzzoiro.com/api", 1)[1]
+        elif nxt.startswith("https://sports.bzzoiro.com"):
+            next_path = nxt.split("https://sports.bzzoiro.com", 1)[1]
         elif nxt.startswith("/api/"):
-            url = nxt[4:]
+            next_path = nxt[4:]
         else:
-            url = nxt
+            next_path = nxt
 
     return out
 
 
-def n(value):
+def num(x):
     try:
-        if value is None:
-            return None
-        return float(value)
+        return float(x)
     except (TypeError, ValueError):
         return None
 
 
-def league_name(event):
-    league = event.get("league")
-    if isinstance(league, dict):
-        return str(league.get("name") or league.get("short_name") or "Necunoscută")
-    if league:
-        return str(league)
-
-    for key in ("league_name", "competition_name", "tournament_name"):
-        if event.get(key):
-            return str(event[key])
-
-    return "Necunoscută"
+def eid(obj):
+    if not isinstance(obj, dict):
+        return None
+    return obj.get("id") or obj.get("event_id") or obj.get("match_id")
 
 
-def event_id(event):
-    return event.get("id") or event.get("event_id") or event.get("match_id")
+def teams(e):
+    h = e.get("home_team")
+    a = e.get("away_team")
+    if isinstance(h, dict):
+        h = h.get("name") or h.get("short_name")
+    if isinstance(a, dict):
+        a = a.get("name") or a.get("short_name")
+    return str(h or "?"), str(a or "?")
 
 
-def event_teams(event):
-    home = event.get("home_team")
-    away = event.get("away_team")
-
-    if isinstance(home, dict):
-        home = home.get("name") or home.get("short_name")
-    if isinstance(away, dict):
-        away = away.get("name") or away.get("short_name")
-
-    return str(home or "?"), str(away or "?")
+def league(e):
+    x = e.get("league")
+    if isinstance(x, dict):
+        return str(x.get("name") or x.get("short_name") or "Necunoscută")
+    return str(x or e.get("league_name") or e.get("competition_name") or "Necunoscută")
 
 
-def event_odds(event):
-    """Exact Bzzoiro fields confirmed by the diagnostic."""
+def parse_date(value):
+    if not value:
+        return None
+    s = str(value).replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+
+def odds(e):
     return {
-        "1": n(event.get("odds_home")),
-        "X": n(event.get("odds_draw")),
-        "2": n(event.get("odds_away")),
-        "gg_yes": n(event.get("odds_btts_yes")),
-        "gg_no": n(event.get("odds_btts_no")),
-        "over_0.5": n(event.get("odds_over_05")),
-        "under_0.5": n(event.get("odds_under_05")),
-        "over_1.5": n(event.get("odds_over_15")),
-        "under_1.5": n(event.get("odds_under_15")),
-        "over_2.5": n(event.get("odds_over_25")),
-        "under_2.5": n(event.get("odds_under_25")),
-        "over_3.5": n(event.get("odds_over_35")),
-        "under_3.5": n(event.get("odds_under_35")),
-        "over_4.5": n(event.get("odds_over_45")),
-        "under_4.5": n(event.get("odds_under_45")),
+        "1": num(e.get("odds_home")),
+        "X": num(e.get("odds_draw")),
+        "2": num(e.get("odds_away")),
+        "gg_yes": num(e.get("odds_btts_yes")),
+        "gg_no": num(e.get("odds_btts_no")),
+        "over_0.5": num(e.get("odds_over_05")),
+        "under_0.5": num(e.get("odds_under_05")),
+        "over_1.5": num(e.get("odds_over_15")),
+        "under_1.5": num(e.get("odds_under_15")),
+        "over_2.5": num(e.get("odds_over_25")),
+        "under_2.5": num(e.get("odds_under_25")),
+        "over_3.5": num(e.get("odds_over_35")),
+        "under_3.5": num(e.get("odds_under_35")),
+        "over_4.5": num(e.get("odds_over_45")),
+        "under_4.5": num(e.get("odds_under_45")),
     }
 
 
-def prediction_id(pred):
-    event = pred.get("event")
-    if isinstance(event, dict):
-        return event.get("id") or event.get("event_id") or event.get("match_id")
-    return pred.get("event_id") or pred.get("match_id")
+def make_options(p):
+    out = []
 
+    def add(market, pick, prob, odd_key):
+        pval = num(p.get(prob))
+        if pval is not None:
+            out.append((market, pick, pval, odd_key))
 
-def make_options(pred):
-    """
-    Exact probability fields confirmed by the Bzzoiro diagnostic.
-    Values are percentages (e.g. 56.8 = 56.8%).
-    """
-    options = []
-
-    def add(market, pick, prob_key, odds_key):
-        p = n(pred.get(prob_key))
-        if p is not None:
-            options.append((market, pick, p, odds_key))
-
-    # 1X2
     add("1X2", "1", "prob_home_win", "1")
     add("1X2", "X", "prob_draw", "X")
     add("1X2", "2", "prob_away_win", "2")
 
-    # GG / BTTS
-    add("GG", "GG Da", "prob_btts_yes", "gg_yes")
-    p_btts = n(pred.get("prob_btts_yes"))
-    if p_btts is not None:
-        options.append(("GG", "GG Nu", 100.0 - p_btts, "gg_no"))
+    by = num(p.get("prob_btts_yes"))
+    if by is not None:
+        out.append(("GG", "GG Da", by, "gg_yes"))
+        out.append(("GG", "GG Nu", 100 - by, "gg_no"))
 
-    # Over/Under. Bzzoiro exposes over probability; under is its complement.
     for line in ("0.5", "1.5", "2.5", "3.5", "4.5"):
         key = line.replace(".", "")
-        over_key = f"prob_over_{key}"
-        p_over = n(pred.get(over_key))
+        po = num(p.get("prob_over_" + key))
+        if po is not None:
+            out.append(("Peste/Sub goluri", f"Peste {line}", po, f"over_{line}"))
+            out.append(("Peste/Sub goluri", f"Sub {line}", 100 - po, f"under_{line}"))
 
-        if p_over is not None:
-            options.append(("Peste/Sub goluri", f"Peste {line}", p_over, f"over_{line}"))
-            options.append(("Peste/Sub goluri", f"Sub {line}", 100.0 - p_over, f"under_{line}"))
+    return out
 
-    return options
+
+def prediction_event_id(p):
+    ev = p.get("event")
+    if isinstance(ev, dict):
+        return eid(ev)
+    return p.get("event_id") or p.get("match_id")
 
 
 @app.get("/")
-def index():
+def home():
     return send_from_directory(app.root_path, "index.html")
 
 
@@ -171,121 +164,130 @@ def search():
 
     q = request.get_json(silent=True) or {}
 
-    date_from = q.get("date_from")
-    date_to = q.get("date_to")
+    try:
+        days = max(0, int(q.get("days", 1)))
+        min_prob = float(q.get("min_prob", 0))
+        min_edge = float(q.get("min_edge", 0))
+        odds_min = float(q.get("odds_min", 1))
+        odds_max = float(q.get("odds_max", 100))
+        max_picks = max(1, int(q.get("max_picks", 30)))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Filtre numerice invalide"}), 400
 
-    market = str(q.get("market", "1x2"))
+    market_filter = str(q.get("market", "all"))
     selection = str(q.get("selection", "all"))
-    line = str(q.get("line", "2.5"))
+    line_filter = str(q.get("line", "2.5"))
     league_filter = str(q.get("league", "all"))
 
-    min_prob = float(q.get("min_prob", 55))
-    min_edge = float(q.get("min_edge", 5))
-    odds_min = float(q.get("odds_min", 1.50))
-    odds_max = float(q.get("odds_max", 3.00))
-    max_picks = int(q.get("max_picks", 10))
-
+    # IMPORTANT:
+    # Do not use the user's probability/edge/market filters in the API query.
+    # Fetch the available set broadly, match it first, then filter locally.
     try:
-        event_path = f"/events/?date_from={date_from}&date_to={date_to}&limit=200"
-        prediction_path = f"/predictions/?date_from={date_from}&date_to={date_to}&limit=200"
-
-        events = paginate(event_path, api_key)
-        predictions = paginate(prediction_path, api_key)
+        events = get_all("/events/?limit=200", api_key)
+        predictions = get_all("/predictions/?limit=200", api_key)
     except requests.HTTPError as e:
         status = e.response.status_code if e.response is not None else 502
         return jsonify({"error": f"Bzzoiro HTTP {status}"}), status
     except Exception as e:
         return jsonify({"error": f"Eroare API: {e}"}), 502
 
-    # Index prediction by event ID. The diagnostic confirmed that predictions
-    # contain a nested event object with the same Bzzoiro event id.
+    # Upcoming window is applied locally.
+    now = datetime.now(timezone.utc)
+    end = now + timedelta(days=days)
+
+    usable_events = []
+    for e in events:
+        dt = parse_date(e.get("event_date") or e.get("kickoff") or e.get("start_time"))
+        status = str(e.get("status") or "").lower()
+
+        if dt is None:
+            continue
+        if dt < now or dt > end:
+            continue
+        if status not in ("", "notstarted", "scheduled", "timed", "upcoming"):
+            continue
+        usable_events.append(e)
+
     pred_by_event = {}
     for p in predictions:
-        pid = prediction_id(p)
+        pid = prediction_event_id(p)
         if pid is not None:
-            pred_by_event[str(pid)] = p
+            pred_by_event.setdefault(str(pid), []).append(p)
 
-    leagues = sorted({
-        league_name(e)
-        for e in events
-        if league_name(e) != "Necunoscută"
-    })
+    leagues = sorted({league(e) for e in usable_events if league(e) != "Necunoscută"})
 
     candidates = []
     matched = 0
-    with_probabilities = 0
+    with_prob = 0
     with_odds = 0
     tested = 0
 
-    for event in events:
-        # Only upcoming/not-started events are useful for pre-match value.
-        status = str(event.get("status") or "").lower()
-        if status not in ("", "notstarted", "scheduled", "timed", "upcoming"):
-            continue
-
-        lg = league_name(event)
+    for e in usable_events:
+        lg = league(e)
         if league_filter != "all" and lg != league_filter:
             continue
 
-        p = pred_by_event.get(str(event_id(event)))
-        if not p:
+        ps = pred_by_event.get(str(eid(e)), [])
+        if not ps:
             continue
 
         matched += 1
-
-        options = make_options(p)
-        if options:
-            with_probabilities += 1
-
-        eo = event_odds(event)
+        eo = odds(e)
         if any(v is not None for v in eo.values()):
             with_odds += 1
 
-        home, away = event_teams(event)
-        kickoff = event.get("event_date") or event.get("kickoff") or event.get("start_time") or ""
+        best_p = ps[0]
+        options = make_options(best_p)
+        if options:
+            with_prob += 1
+
+        home, away = teams(e)
+        kickoff = e.get("event_date") or ""
 
         for mk, pick, prob, odds_key in options:
             tested += 1
 
-            # Market tab
-            if market == "1x2" and mk != "1X2":
-                continue
-            if market == "gg" and mk != "GG":
-                continue
-            if market == "goals" and mk != "Peste/Sub goluri":
-                continue
+            # Market
+            if market_filter != "all":
+                if market_filter == "1x2" and mk != "1X2":
+                    continue
+                if market_filter == "gg" and mk != "GG":
+                    continue
+                if market_filter == "goals" and mk != "Peste/Sub goluri":
+                    continue
 
             # Goal line
-            if market == "goals" and not pick.endswith(line):
-                continue
+            if mk == "Peste/Sub goluri" and market_filter == "goals":
+                if not pick.endswith(line_filter):
+                    continue
 
             # Selection
             if selection != "all":
-                if market == "1x2":
-                    expected = {"home": "1", "draw": "X", "away": "2"}.get(selection)
-                    if expected and pick != expected:
+                if mk == "1X2":
+                    wanted = {"home": "1", "draw": "X", "away": "2"}.get(selection)
+                    if wanted and pick != wanted:
                         continue
-                elif market == "gg":
-                    expected = "GG Da" if selection == "yes" else "GG Nu"
-                    if pick != expected:
+                elif mk == "GG":
+                    wanted = {"yes": "GG Da", "no": "GG Nu"}.get(selection)
+                    if wanted and pick != wanted:
                         continue
-                elif market == "goals":
-                    expected = "Peste" if selection == "over" else "Sub"
-                    if not pick.startswith(expected + " "):
+                elif mk == "Peste/Sub goluri":
+                    wanted = {"over": "Peste", "under": "Sub"}.get(selection)
+                    if wanted and not pick.startswith(wanted + " "):
                         continue
 
             odd = eo.get(odds_key)
-            if prob is None or odd is None or odd <= 1:
+            if odd is None or odd <= 1:
                 continue
 
-            implied = 100.0 / odd
+            implied = 100 / odd
             edge = prob - implied
 
             if prob < min_prob:
                 continue
-            if odd < odds_min or odd > odds_max:
-                continue
             if edge < min_edge:
+                continue
+            if odd < odds_min or odd > odds_max:
                 continue
 
             candidates.append({
@@ -295,7 +297,7 @@ def search():
                 "market": mk,
                 "pick": pick,
                 "prob": round(prob, 2),
-                "odds": round(odd, 3),
+                "odds": round(odd, 2),
                 "implied": round(implied, 2),
                 "edge": round(edge, 2),
                 "kickoff": kickoff,
@@ -305,11 +307,11 @@ def search():
 
     return jsonify({
         "candidates": candidates[:max_picks],
-        "events": len(events),
+        "events": len(usable_events),
         "predictions": len(predictions),
         "leagues": leagues,
         "matched": matched,
-        "with_probabilities": with_probabilities,
+        "with_probabilities": with_prob,
         "with_odds": with_odds,
         "tested": tested,
     })
