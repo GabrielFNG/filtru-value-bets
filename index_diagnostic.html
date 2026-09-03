@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnostic Bzzoiro</title>
+<style>
+body{font-family:Arial,sans-serif;background:#111;color:#eee;margin:0;padding:20px}
+.box{max-width:900px;margin:auto;background:#1d1d1d;padding:22px;border-radius:14px}
+input{width:100%;box-sizing:border-box;padding:13px;margin:8px 0 14px;border-radius:8px;border:1px solid #555;background:#292929;color:white}
+button{padding:13px 20px;border:0;border-radius:9px;background:#20c8e8;color:#001018;font-weight:bold;cursor:pointer}
+pre{white-space:pre-wrap;word-break:break-word;background:#090909;padding:15px;border-radius:10px;margin-top:18px;font-size:13px}
+.ok{color:#7cff9b}.err{color:#ff7777}
+.small{color:#aaa;font-size:14px;line-height:1.45}
+</style>
+</head>
+<body>
+<div class="box">
+<h2>🔎 Diagnostic Bzzoiro</h2>
+<p class="small">
+Introdu cheia API doar aici, pentru test. Cheia este trimisă numai către propriul nostru server
+pentru a face cererile către Bzzoiro și nu este afișată în rezultatul diagnostic.
+Nu bifa salvarea și nu trimite cheia în chat.
+</p>
+
+<label>Cheia API Bzzoiro</label>
+<input id="key" type="password" autocomplete="off" placeholder="Token API">
+
+<button onclick="runDiagnostic()">Rulează diagnosticul</button>
+
+<div id="status" class="small"></div>
+<pre id="out">Aștept testul...</pre>
+</div>
+
+<script>
+async function runDiagnostic(){
+  const key=document.getElementById("key").value.trim();
+  const status=document.getElementById("status");
+  const out=document.getElementById("out");
+
+  if(!key){
+    status.innerHTML='<span class="err">Introdu cheia API.</span>';
+    return;
+  }
+
+  status.innerHTML='Se verifică structura reală a răspunsurilor Bzzoiro...';
+  out.textContent='';
+
+  try{
+    const r=await fetch('/api/diagnostic',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({api_key:key})
+    });
+
+    const data=await r.json();
+    out.textContent=JSON.stringify(data,null,2);
+
+    if(r.ok){
+      status.innerHTML='<span class="ok">Diagnostic finalizat.</span> Copiază rezultatul de mai jos și trimite-mi-l aici.';
+    }else{
+      status.innerHTML='<span class="err">Eroare la diagnostic.</span>';
+    }
+  }catch(e){
+    status.innerHTML='<span class="err">Eroare de conexiune: '+e+'</span>';
+  }
+
+  // Ștergem cheia din câmp după test.
+  document.getElementById("key").value="";
+}
+</script>
+</body>
+</html>
