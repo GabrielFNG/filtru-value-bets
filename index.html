@@ -35,7 +35,11 @@ th{color:#8f9aa5;font-size:12px;text-transform:uppercase}
 <div class="wrap">
 <div class="card">
 <h1>🎯 Filtru Value Bets</h1>
-<div class="muted">🔎 Modul analiză: afișează toate edge-urile calculabile, pozitive și negative.</div>
+<div class="muted">🔎 Modul implicit: Value Bets — filtrele de probabilitate, edge și cotă sunt active.</div>
+<div style="margin-top:12px">
+<label>Mod analiză</label>
+<select id="mode"><option value="filtered" selected>Value Bets — filtre active</option><option value="all_edges">Toate edge-urile — fără filtre numerice</option></select>
+</div>
 <div style="margin-top:16px">
 <label>Cheia API Bzzoiro</label>
 <input id="api_key" type="password" autocomplete="off" placeholder="Token API">
@@ -63,27 +67,27 @@ th{color:#8f9aa5;font-size:12px;text-transform:uppercase}
 </div>
 
 <div>
-<label>Probabilitate minimă (%) — ignorată în analiza completă</label>
+<label>Probabilitate minimă (%)</label>
 <input id="min_prob" type="number" min="0" max="100" step="0.1" value="0">
 </div>
 
 <div>
-<label>Edge minim (pp) — ignorat în analiza completă</label>
+<label>Edge minim (pp)</label>
 <input id="min_edge" type="number" step="0.1" value="0">
 </div>
 
 <div>
-<label>Cotă minimă — ignorată în analiza completă</label>
+<label>Cotă minimă</label>
 <input id="odds_min" type="number" min="1" step="0.01" value="1">
 </div>
 
 <div>
-<label>Cotă maximă — ignorată în analiza completă</label>
+<label>Cotă maximă</label>
 <input id="odds_max" type="number" min="1" step="0.01" value="100">
 </div>
 
 <div>
-<label>Max. selecții — ignorat în analiza completă</label>
+<label>Max. selecții</label>
 <input id="max_picks" type="number" min="1" value="30">
 </div>
 
@@ -171,6 +175,7 @@ async function search(){
   const payload={
     date_from:from,
     date_to:to,
+    mode:document.getElementById("mode").value,
     market,
     selection:selection.value,
     line:document.getElementById("line").value,
@@ -248,8 +253,18 @@ function esc(s){
   return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+const modeSelect=document.getElementById("mode");
+function updateModeLabels(){
+  const all=modeSelect.value==="all_edges";
+  document.querySelector('label[for="__none__"]');
+  const labels=[...document.querySelectorAll(".grid label")];
+  const texts={min_prob:all?"Probabilitate minimă (%) — ignorată în analiza completă":"Probabilitate minimă (%)",min_edge:all?"Edge minim (pp) — ignorat în analiza completă":"Edge minim (pp)",odds_min:all?"Cotă minimă — ignorată în analiza completă":"Cotă minimă",odds_max:all?"Cotă maximă — ignorată în analiza completă":"Cotă maximă",max_picks:all?"Max. selecții — ignorat în analiza completă":"Max. selecții"};
+  Object.entries(texts).forEach(([id,text])=>{ const el=document.getElementById(id); if(el&&el.previousElementSibling) el.previousElementSibling.textContent=text; });
+}
+modeSelect.onchange=updateModeLabels;
 document.getElementById("search").onclick=search;
 updateControls();
+updateModeLabels();
 </script>
 </body>
 </html>
