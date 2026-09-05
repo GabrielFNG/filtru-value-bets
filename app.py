@@ -151,7 +151,10 @@ def search():
 
     try:
         events=all_results("/events/?limit=200",key)
-        predictions=all_results("/predictions/?limit=200",key)
+        # BSD/Bzzoiro serves upcoming predictions by default. For historical
+        # windows we must explicitly request the full prediction history.
+        pred_path = "/predictions/?upcoming=false&limit=200" if days < 0 else "/predictions/?limit=200"
+        predictions=all_results(pred_path,key)
     except requests.HTTPError as e:
         s=e.response.status_code if e.response is not None else 502
         return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
