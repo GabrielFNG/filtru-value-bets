@@ -92,6 +92,45 @@ def home(): return send_from_directory(app.root_path,"index.html")
 @app.get("/health")
 def health(): return jsonify({"ok":True})
 
+
+
+def score_from_event(e):
+    pairs=[
+        (e.get("home_score"),e.get("away_score")),
+        (e.get("score_home"),e.get("score_away")),
+        (e.get("home_team_score"),e.get("away_team_score")),
+        (e.get("goals_home"),e.get("goals_away")),
+    ]
+    sc=e.get("score")
+    if isinstance(sc,dict):
+        pairs += [(sc.get("home"),sc.get("away")),(sc.get("home_score"),sc.get("away_score"))]
+    for h,a in pairs:
+        hn,an=num(h),num(a)
+        if hn is not None and an is not None:
+            return int(hn),int(an)
+    return None,None
+
+@app.post("/api/check_results")
+def check_results():
+    key=request.headers.get("Authorization","").replace("Token ","").strip()
+    if not key:return jsonify({"error":"Lipsește API Key"}),401
+    q=request.get_json(silent=True) or {}
+    ids={str(x) for x in (q.get("event_ids") or [])}
+    if not ids:return jsonify({"results":{}})
+    try: events=all_results("/events/?limit=200",key)
+    except requests.HTTPError as e:
+        s=e.response.status_code if e.response is not None else 502
+        return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
+    except Exception as e:return jsonify({"error":f"Eroare API: {e}"}),502
+    out={}
+    for e in events:
+        i=eid(e)
+        if i is None or str(i) not in ids: continue
+        h,a=score_from_event(e)
+        status=str(e.get("status") or "").lower()
+        out[str(i)]={"status":status,"home_score":h,"away_score":a}
+    return jsonify({"results":out})
+
 @app.post("/api/search")
 def search():
     key=request.headers.get("Authorization","").replace("Token ","").strip()
@@ -107,7 +146,7 @@ def search():
     mode=str(q.get("mode","filtered"))
     if mode not in ("filtered","all_edges"): mode="filtered"
     mf=str(q.get("market","all")); sf=str(q.get("selection","all"))
-    lf=str(q.get("line","2.5")); league_filter=str(q.get("league","all"))
+    lf=str(q.get("line","2.5")); league_filter=str(q.get("league","all")); team_filter=str(q.get("team","all"))
 
     try:
         events=all_results("/events/?limit=200",key)
@@ -131,11 +170,14 @@ def search():
         if pid is not None: by.setdefault(str(pid),[]).append(p)
 
     leagues=sorted({league(e) for e in ev if league(e)!="Necunoscută"})
+    team_names=sorted({t for e in ev for t in teams(e) if t and t!="?"})
     candidates=[]; matched=withprob=withodds=tested=0
 
     for e in ev:
         lg=league(e)
+        h,a=teams(e)
         if league_filter!="all" and lg!=league_filter: continue
+        if team_filter!="all" and team_filter not in (h,a): continue
         ps=by.get(str(eid(e)),[])
         if not ps: continue
         matched+=1
@@ -181,12 +223,13 @@ def search():
                     if edge < min_edge: continue
                     if odd < omin or odd > omax: continue
 
-                h,a=teams(e)
                 candidates.append({
                     "home":h,"away":a,"league":lg,"market":mk,"pick":pick,
                     "prob":round(prob,2),"odds":round(odd,2),
                     "implied":round(implied,2),"edge":round(edge,2),
-                    "kickoff":e.get("event_date","")
+                    "kickoff":e.get("event_date","") ,
+                    "event_id":eid(e),
+                    "status":e.get("status","")
                 })
         if event_has_prob: withprob+=1
 
@@ -197,11 +240,11 @@ def search():
 
     return jsonify({
         "candidates":candidates,
-        "events":len(ev),"predictions":len(predictions),"leagues":leagues,
+        "events":len(ev),"predictions":len(predictions),"leagues":leagues,"teams":team_names,
         "matched":matched,"with_probabilities":withprob,
         "with_odds":withodds,"tested":tested,
         "mode":"ALL_EDGES" if mode=="all_edges" else "FILTERED",
-        "filters_applied":(["days","league","market","selection","goal_line"] if mode=="all_edges" else ["days","league","market","selection","goal_line","min_prob","min_edge","odds_min","odds_max","max_picks"])
+        "filters_applied":(["days","league","team","market","selection","goal_line"] if mode=="all_edges" else ["days","league","market","selection","goal_line","min_prob","min_edge","odds_min","odds_max","max_picks"])
     })
 
 if __name__=="__main__":
