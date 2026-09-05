@@ -277,6 +277,47 @@ def check_results():
             }
     return jsonify({"results":out})
 
+
+@app.post("/api/debug_window")
+def debug_window():
+    key=request.headers.get("Authorization","").replace("Token ","").strip()
+    if not key:return jsonify({"error":"Lipsește API Key"}),401
+    q=request.get_json(silent=True) or {}
+    try: days=int(q.get("days",0))
+    except: days=0
+    try:
+        ro_now=datetime.now(ZoneInfo("Europe/Bucharest"))
+        if days < 0:
+            ws=ro_now+timedelta(days=days); we=ro_now
+        elif days==0:
+            ws=ro_now.replace(hour=0,minute=0,second=0,microsecond=0); we=ws+timedelta(days=1)
+        else:
+            ws=ro_now; we=ro_now+timedelta(days=days)
+        af=(ws-timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+        at=(we+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+        modes=["true","false"] if days==0 else (["false"] if days<0 else ["true"])
+        report={"days":days,"window_start":ws.isoformat(),"window_end":we.isoformat(),
+                "api_from":af,"api_to":at,"modes":modes,"calls":[]}
+        for up in modes:
+            es=all_results(f"/events/?upcoming={up}&date_from={af}&date_to={at}",key)
+            ps=all_results(f"/predictions/?upcoming={up}&date_from={af}&date_to={at}",key)
+            eids={str(eid(e)) for e in es if eid(e) is not None}
+            peids={str(event_id_from_prediction(p)) for p in ps if event_id_from_prediction(p) is not None}
+            overlap=len(eids & peids)
+            inwin=0
+            for e in es:
+                d=dt(e)
+                if d:
+                    dr=d.astimezone(ZoneInfo("Europe/Bucharest"))
+                    if ws<=dr<we: inwin+=1
+            report["calls"].append({"upcoming":up,"events":len(es),"predictions":len(ps),
+                                    "event_ids":len(eids),"prediction_event_ids":len(peids),
+                                    "overlap":overlap,"events_in_exact_window":inwin,
+                                    "sample_prediction_ids":[event_id_from_prediction(p) for p in ps[:5]]})
+        return jsonify(report)
+    except Exception as e:
+        return jsonify({"error":f"{type(e).__name__}: {e}"}),502
+
 @app.post("/api/search")
 def search():
     key=request.headers.get("Authorization","").replace("Token ","").strip()
