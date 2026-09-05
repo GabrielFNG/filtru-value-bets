@@ -25,7 +25,13 @@
 <div><label>Max. selecții</label><input id="max_picks" type="number" min="1" value="30"></div>
 <div id="selection_box"><label>Selecție</label><select id="selection"><option value="all">Toate</option></select></div>
 <div id="line_box" style="display:none"><label>Linie goluri</label><select id="line"><option value="0.5">0.5</option><option value="1.5">1.5</option><option value="2.5" selected>2.5</option><option value="3.5">3.5</option><option value="4.5">4.5</option></select></div>
-</div><button class="search" id="search">🔎 Caută value bets</button><div class="summary" id="summary">Aștept căutarea...</div>
+</div><div id="debugWindowBox" style="margin:10px 0;padding:10px;border:1px solid #374151;border-radius:10px">
+  <div style="margin-bottom:8px">🔧 Diagnostic interval</div>
+  <button type="button" onclick="runWindowDiagnostic(0)">Diagnostic 0</button>
+  <button type="button" onclick="runWindowDiagnostic(1)" style="margin-left:8px">Diagnostic 1</button>
+  <pre id="debugWindowOut" style="white-space:pre-wrap;margin:10px 0 0"></pre>
+</div>
+<button class="search" id="search">🔎 Caută value bets</button><div class="summary" id="summary">Aștept căutarea...</div>
 <div class="table-wrap"><table><thead><tr><th>Selectează</th><th>Meci</th><th>Ligă</th><th>Piață / selecție</th><th>Prob.</th><th>Cotă</th><th>Edge</th></tr></thead><tbody id="rows"></tbody></table></div>
 </div>
 <div id="selectedView" style="display:none"><div class="summary" id="selectedSummary"></div><div class="table-wrap"><table><thead><tr><th>Data selecției</th><th>Meci</th><th>Ligă</th><th>Piață / selecție</th><th>Prob.</th><th>Cotă</th><th>Edge</th><th>Status</th><th></th></tr></thead><tbody id="selectedRows"></tbody></table></div></div>
@@ -54,4 +60,27 @@ $('league').addEventListener('change',()=>populateTeams($('league').value,'all')
 async function search(){const days=Number($('days').value||1);const payload={mode:$('mode').value,market,selection:$('selection').value,line:$('line').value,league:$('league').value,team:$('team').value,min_prob:Number($('min_prob').value||0),min_edge:Number($('min_edge').value||0),odds_min:Number($('odds_min').value||1),odds_max:Number($('odds_max').value||100),max_picks:Number($('max_picks').value||30),days};$('summary').textContent='Se caută...';$('rows').innerHTML='';let key=$('api_key').value.trim()||localStorage.getItem(KEY)||'';if(!key){$('summary').innerHTML='<span class="bad">Lipsește API Key.</span>';return}if($('save_key').checked)localStorage.setItem(KEY,key);try{const r=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Token '+key},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok){$('summary').innerHTML='<span class="bad">'+esc(d.error||'Eroare API')+'</span>';return}currentCandidates=d.candidates||[];const leagues=d.leagues||[];teamsByLeague=d.teams_by_league||{};const lv=$('league').value,tv=$('team').value;$('league').innerHTML='<option value="all">Toate ligile</option>';leagues.forEach(x=>$('league').add(new Option(x,x)));if(leagues.includes(lv))$('league').value=lv;populateTeams($('league').value,tv);$('summary').textContent=`${currentCandidates.length} selecții · ${d.events||0} meciuri · ${d.predictions||0} predicții · ${leagues.length} ligi`;renderCandidates();checkResults()}catch(e){$('summary').innerHTML='<span class="bad">Eroare de conexiune: '+esc(e.message)+'</span>'}}
 function switchView(v){$('betsView').style.display=v==='bets'?'block':'none';$('selectedView').style.display=v==='selected'?'block':'none';$('historyView').style.display=v==='history'?'block':'none';document.querySelectorAll('.navtab').forEach(b=>b.classList.toggle('active',b.dataset.view===v));if(v==='selected'){renderSelected();checkResults()}if(v==='history'){checkResults();renderHistory()}}
 document.querySelectorAll('.navtab').forEach(b=>b.onclick=()=>switchView(b.dataset.view));$('search').onclick=search;$('clearHistory').onclick=()=>{if(confirm('Ștergi tot istoricul?')){write(HIST,[]);renderHistory()}};const saved=localStorage.getItem(KEY);if(saved)$('api_key').value=saved;updateControls();renderSelected();renderHistory();
+
+async function runWindowDiagnostic(days){
+  const out=document.getElementById('debugWindowOut');
+  out.textContent='Se verifică...';
+  try{
+    const key=(document.getElementById('apiKey')||document.getElementById('key')||document.querySelector('input[type="password"]'))?.value?.trim();
+    if(!key){ out.textContent='Introdu cheia API în câmpul existent.'; return; }
+    const r=await fetch('/api/debug_window',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Token '+key},
+      body:JSON.stringify({days})
+    });
+    const text=await r.text();
+    try{
+      const data=JSON.parse(text);
+      out.textContent=JSON.stringify(data,null,2);
+    }catch(e){
+      out.textContent='Răspunsul serverului nu este JSON:\\n'+text.slice(0,1000);
+    }
+  }catch(e){
+    out.textContent='Eroare diagnostic: '+e;
+  }
+}
 </script></body></html>
