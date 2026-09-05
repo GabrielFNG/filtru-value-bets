@@ -95,6 +95,23 @@ def health(): return jsonify({"ok":True})
 
 
 
+
+def score_from_prediction(p):
+    pairs=[
+        (p.get("home_score"),p.get("away_score")),
+        (p.get("score_home"),p.get("score_away")),
+        (p.get("home_team_score"),p.get("away_team_score")),
+        (p.get("goals_home"),p.get("goals_away")),
+    ]
+    sc=p.get("score")
+    if isinstance(sc,dict):
+        pairs += [(sc.get("home"),sc.get("away")),(sc.get("home_score"),sc.get("away_score"))]
+    for h,a in pairs:
+        hn,an=num(h),num(a)
+        if hn is not None and an is not None:
+            return int(hn),int(an)
+    return None,None
+
 def score_from_event(e):
     pairs=[
         (e.get("home_score"),e.get("away_score")),
@@ -118,18 +135,37 @@ def check_results():
     q=request.get_json(silent=True) or {}
     ids={str(x) for x in (q.get("event_ids") or [])}
     if not ids:return jsonify({"results":{}})
-    try: events=all_results("/events/?limit=200",key)
+    try:
+        events=all_results("/events/?upcoming=false&limit=200",key)
+        predictions=all_results("/predictions/?upcoming=false&limit=200",key)
     except requests.HTTPError as e:
         s=e.response.status_code if e.response is not None else 502
         return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
     except Exception as e:return jsonify({"error":f"Eroare API: {e}"}),502
     out={}
+    pred_by_event={}
+    for p in predictions:
+        i=event_id_from_prediction(p)
+        if i is not None: pred_by_event[str(i)]=p
     for e in events:
         i=eid(e)
         if i is None or str(i) not in ids: continue
         h,a=score_from_event(e)
         status=str(e.get("status") or "").lower()
+        if h is None or a is None:
+            pp=pred_by_event.get(str(i))
+            if pp:
+                h,a=score_from_prediction(pp)
+                if not status: status=str(pp.get("status") or "").lower()
         out[str(i)]={"status":status,"home_score":h,"away_score":a}
+    # If an event is present only inside a historical prediction, still return its score.
+    for i in ids:
+        if i in out: continue
+        pp=pred_by_event.get(i)
+        if pp:
+            h,a=score_from_prediction(pp)
+            if h is not None and a is not None:
+                out[i]={"status":str(pp.get("status") or "finished").lower(),"home_score":h,"away_score":a}
     return jsonify({"results":out})
 
 @app.post("/api/search")
@@ -150,11 +186,24 @@ def search():
     lf=str(q.get("line","2.5")); league_filter=str(q.get("league","all")); team_filter=str(q.get("team","all"))
 
     try:
-        events=all_results("/events/?limit=200",key)
-        # BSD/Bzzoiro serves upcoming predictions by default. For historical
-        # windows we must explicitly request the full prediction history.
+        event_path = "/events/?upcoming=false&limit=200" if days < 0 else "/events/?limit=200"
+        events=all_results(event_path,key)
+        # Historical predictions are explicitly requested with upcoming=false.
         pred_path = "/predictions/?upcoming=false&limit=200" if days < 0 else "/predictions/?limit=200"
         predictions=all_results(pred_path,key)
+        # Historical prediction records can contain their own embedded event.
+        # Merge those embedded events so past matches are not lost if the
+        # generic events endpoint only exposes a recent slice.
+        if days < 0:
+            by_embedded={}
+            for p in predictions:
+                pe=p.get("event")
+                if isinstance(pe,dict) and eid(pe) is not None:
+                    by_embedded[str(eid(pe))]=pe
+            merged={str(eid(e)):e for e in events if eid(e) is not None}
+            for k,e in by_embedded.items():
+                if k not in merged: merged[k]=e
+            events=list(merged.values())
     except requests.HTTPError as e:
         s=e.response.status_code if e.response is not None else 502
         return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
