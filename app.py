@@ -138,9 +138,9 @@ def check_results():
     try:
         # v1 history is page-number paginated. Pull the recent archive window
         # where selected matches can realistically be, then match by event id.
-        now=datetime.now(timezone.utc)
-        date_from=(now-timedelta(days=30)).date().isoformat()
-        date_to=now.date().isoformat()
+        now=datetime.now(ZoneInfo("Europe/Bucharest"))
+        date_from=(now-timedelta(days=365)).astimezone(timezone.utc).date().isoformat()
+        date_to=(now+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
         events=all_results(f"/events/?upcoming=false&date_from={date_from}&date_to={date_to}",key)
         predictions=all_results(f"/predictions/?upcoming=false&date_from={date_from}&date_to={date_to}",key)
     except requests.HTTPError as e:
@@ -148,29 +148,39 @@ def check_results():
         return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
     except Exception as e:return jsonify({"error":f"Eroare API: {e}"}),502
     out={}
+    # Use both normal historical events and the event embedded in each
+    # historical prediction. The latter contains the final score too.
+    event_by_id={}
+    for e in events:
+        i=eid(e)
+        if i is not None:
+            event_by_id[str(i)]=e
+
     pred_by_event={}
     for p in predictions:
         i=event_id_from_prediction(p)
-        if i is not None: pred_by_event[str(i)]=p
-    for e in events:
-        i=eid(e)
-        if i is None or str(i) not in ids: continue
-        h,a=score_from_event(e)
-        status=str(e.get("status") or "").lower()
-        if h is None or a is None:
-            pp=pred_by_event.get(str(i))
-            if pp:
-                h,a=score_from_prediction(pp)
-                if not status: status=str(pp.get("status") or "").lower()
-        out[str(i)]={"status":status,"home_score":h,"away_score":a}
-    # If an event is present only inside a historical prediction, still return its score.
-    for i in ids:
-        if i in out: continue
-        pp=pred_by_event.get(i)
-        if pp:
+        if i is not None:
+            pred_by_event[str(i)]=p
+        pe=p.get("event")
+        if isinstance(pe,dict):
+            ei=eid(pe)
+            if ei is not None and str(ei) not in event_by_id:
+                event_by_id[str(ei)]=pe
+
+    for sid in ids:
+        e=event_by_id.get(str(sid))
+        pp=pred_by_event.get(str(sid))
+        h=a=None
+        status=""
+        if e:
+            h,a=score_from_event(e)
+            status=str(e.get("status") or "").lower()
+        if (h is None or a is None) and pp:
             h,a=score_from_prediction(pp)
-            if h is not None and a is not None:
-                out[i]={"status":str(pp.get("status") or "finished").lower(),"home_score":h,"away_score":a}
+            status=status or str(pp.get("status") or "finished").lower()
+        if h is not None and a is not None:
+            out[str(sid)]={"status":status or "finished","home_score":h,"away_score":a}
+
     return jsonify({"results":out})
 
 @app.post("/api/search")
@@ -191,21 +201,30 @@ def search():
     lf=str(q.get("line","2.5")); league_filter=str(q.get("league","all")); team_filter=str(q.get("team","all"))
 
     try:
-        # v1 is the endpoint currently used by the app. Important: v1 uses
-        # page-number pagination (not limit/offset) and supports date_from/date_to.
-        # For historical searches, request the relevant calendar dates directly
-        # instead of accidentally reading only the oldest 200 records.
+        # Exact window is calculated in Romania time. Bzzoiro is queried
+        # with a one-day UTC date buffer; exact filtering happens locally.
+        ro_now = datetime.now(ZoneInfo("Europe/Bucharest"))
         if days < 0:
-            utc_now = datetime.now(timezone.utc)
-            hist_start = utc_now + timedelta(days=days)
-            hist_end = utc_now
-            date_from = hist_start.date().isoformat()
-            date_to = hist_end.date().isoformat()
-            event_path = f"/events/?upcoming=false&date_from={date_from}&date_to={date_to}"
-            pred_path = f"/predictions/?upcoming=false&date_from={date_from}&date_to={date_to}"
+            window_start = ro_now + timedelta(days=days)
+            window_end = ro_now
+            api_from = (window_start - timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            api_to = (window_end + timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            event_path = f"/events/?upcoming=false&date_from={api_from}&date_to={api_to}"
+            pred_path = f"/predictions/?upcoming=false&date_from={api_from}&date_to={api_to}"
+        elif days == 0:
+            window_start = ro_now.replace(hour=0, minute=0, second=0, microsecond=0)
+            window_end = window_start + timedelta(days=1)
+            api_from = (window_start - timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            api_to = (window_end + timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            event_path = f"/events/?upcoming=true&date_from={api_from}&date_to={api_to}"
+            pred_path = f"/predictions/?upcoming=true&date_from={api_from}&date_to={api_to}"
         else:
-            event_path = "/events/?limit=200"
-            pred_path = "/predictions/?limit=200"
+            window_start = ro_now
+            window_end = ro_now + timedelta(days=days)
+            api_from = (window_start - timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            api_to = (window_end + timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            event_path = f"/events/?upcoming=true&date_from={api_from}&date_to={api_to}"
+            pred_path = f"/predictions/?upcoming=true&date_from={api_from}&date_to={api_to}"
         events=all_results(event_path,key)
         predictions=all_results(pred_path,key)
         # Historical prediction records can contain their own embedded event.
@@ -226,28 +245,19 @@ def search():
         return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
     except Exception as e:return jsonify({"error":f"Eroare API: {e}"}),502
 
-    now=datetime.now(timezone.utc)
-    # Date window rules:
-    # 0  = calendar day today (Romania time), 00:00-23:59:59
-    # >0 = next N*24 hours from the moment of search
-    # <0 = previous N*24 hours from the moment of search
-    if days == 0:
-        local_now=now.astimezone(ZoneInfo("Europe/Bucharest"))
-        local_start=local_now.replace(hour=0,minute=0,second=0,microsecond=0)
-        local_end=local_start+timedelta(days=1)
-        start=local_start.astimezone(timezone.utc)
-        end=local_end.astimezone(timezone.utc)
-    elif days > 0:
-        start=now
-        end=now+timedelta(days=days)
-    else:
-        start=now+timedelta(days=days)
-        end=now
+    # Exact window in Romania local time:
+    # -1/-2/-3 = previous 24/48/72 hours; 0 = current calendar day;
+    # 1/2/3 = next 24/48/72 hours.
+    start_ro=window_start
+    end_ro=window_end
 
     ev=[]
     for e in events:
         d=dt(e)
-        if not d or not (start <= d < end):
+        if not d:
+            continue
+        d_ro=d.astimezone(ZoneInfo("Europe/Bucharest"))
+        if not (start_ro <= d_ro < end_ro):
             continue
         status=str(e.get("status") or "").lower()
         if days < 0:
