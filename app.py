@@ -168,6 +168,74 @@ def check_results():
                 out[i]={"status":str(pp.get("status") or "finished").lower(),"home_score":h,"away_score":a}
     return jsonify({"results":out})
 
+
+@app.post("/api/debug_history")
+def debug_history():
+    """Diagnostic only: inspect the exact shape of Bzzoiro historical data without exposing the API key."""
+    key=request.headers.get("Authorization","").replace("Token ","").strip()
+    if not key:return jsonify({"error":"Lipsește API Key"}),401
+    try:
+        events=all_results("/events/?upcoming=false&limit=200",key)
+        predictions=all_results("/predictions/?upcoming=false&limit=200",key)
+    except requests.HTTPError as e:
+        s=e.response.status_code if e.response is not None else 502
+        return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
+    except Exception as e:
+        return jsonify({"error":f"Eroare API: {e}"}),502
+
+    def safe_keys(x):
+        return sorted(list(x.keys())) if isinstance(x,dict) else []
+    def sample_fields(x, names):
+        if not isinstance(x,dict): return {}
+        out={}
+        for n in names:
+            if n in x and x.get(n) is not None:
+                v=x.get(n)
+                if isinstance(v,(str,int,float,bool)):
+                    out[n]=v
+                elif isinstance(v,dict):
+                    out[n]={"keys":safe_keys(v)}
+        return out
+
+    pred_ids=[]; embedded=[]
+    for p in predictions[:10]:
+        pid=event_id_from_prediction(p)
+        pe=p.get("event") if isinstance(p.get("event"),dict) else None
+        pred_ids.append(pid)
+        embedded.append({
+            "prediction_id":p.get("id"),
+            "event_id_extracted":pid,
+            "prediction_keys":safe_keys(p),
+            "prediction_dates":sample_fields(p,["event_date","kickoff","start_time","date","match_date"]),
+            "prediction_scores":sample_fields(p,["home_score","away_score","score_home","score_away","home_team_score","away_team_score","goals_home","goals_away","score"]),
+            "embedded_event_keys":safe_keys(pe),
+            "embedded_event": sample_fields(pe,["id","event_date","kickoff","start_time","status","home_team","away_team","home_score","away_score","score"])
+        })
+
+    event_ids={str(eid(e)) for e in events if eid(e) is not None}
+    pred_event_ids={str(x) for x in pred_ids if x is not None}
+    overlap=sorted(event_ids & pred_event_ids)
+    historical_scored=[]
+    for e in events[:10]:
+        h,a=score_from_event(e)
+        historical_scored.append({
+            "id":eid(e),"date":dt(e).isoformat() if dt(e) else None,"status":e.get("status"),
+            "teams":teams(e),"score":[h,a] if h is not None and a is not None else None,
+            "keys":safe_keys(e)
+        })
+
+    return jsonify({
+        "events_count":len(events),
+        "predictions_count":len(predictions),
+        "event_ids_count":len(event_ids),
+        "prediction_event_ids_count":len(pred_event_ids),
+        "overlap_count":len(overlap),
+        "overlap_sample":overlap[:20],
+        "events_with_scores_sample":historical_scored,
+        "predictions_sample":embedded,
+        "note":"Diagnosticul nu afișează cheia API și nu modifică datele sau selecțiile."
+    })
+
 @app.post("/api/search")
 def search():
     key=request.headers.get("Authorization","").replace("Token ","").strip()
