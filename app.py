@@ -116,29 +116,25 @@ def normalize_v2_prediction(p):
                 x[k]=ev[k]
     return x
 
-def fetch_v2_window(key, start_ro, end_ro):
-    # Query a UTC calendar buffer; exact Romania-time filtering is done locally.
+def fetch_history_window(key, start_ro, end_ro):
+    # Keep the stable v1 endpoints that already return embedded odds and
+    # prediction probabilities. Query a small UTC calendar buffer, then filter
+    # precisely in Romania time in /api/search.
     api_from=(start_ro-timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
     api_to=(end_ro+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+    events=all_results(f"/events/?upcoming={'false' if start_ro < datetime.now(ZoneInfo('Europe/Bucharest')) else 'true'}&date_from={api_from}&date_to={api_to}",key)
+    predictions=all_results(f"/predictions/?upcoming={'false' if start_ro < datetime.now(ZoneInfo('Europe/Bucharest')) else 'true'}&date_from={api_from}&date_to={api_to}",key)
 
-    events_raw=v2_results(f"/events/?date_from={api_from}&date_to={api_to}&limit=200",key)
-    preds_raw=v2_results(f"/predictions/?date_from={api_from}&date_to={api_to}&limit=200",key)
-    odds_raw=v2_results(f"/odds/?date_from={api_from}&date_to={api_to}&limit=200",key)
-
-    om=v2_odds_map(odds_raw)
-    events=[normalize_v2_event(e,om) for e in events_raw]
-    predictions=[normalize_v2_prediction(p) for p in preds_raw]
-
-    # Some prediction records carry the event only inside prediction.event.
+    # Historical prediction records can contain the complete event object.
     by_event={str(eid(e)):e for e in events if eid(e) is not None}
     for p in predictions:
         pe=p.get("event")
         if isinstance(pe,dict) and eid(pe) is not None:
             pid=str(eid(pe))
             if pid not in by_event:
-                by_event[pid]=normalize_v2_event(pe,om)
-
+                by_event[pid]=pe
     return list(by_event.values()), predictions
+
 
 def num(x):
     try: return float(x)
@@ -249,36 +245,36 @@ def check_results():
     q=request.get_json(silent=True) or {}
     ids={str(x) for x in (q.get("event_ids") or [])}
     if not ids:return jsonify({"results":{}})
-    out={}
     try:
-        # Selected matches are recent by design. Fetch a 365-day finished archive
-        # so an already-played pick can always be resolved to its final score.
         now=datetime.now(ZoneInfo("Europe/Bucharest"))
-        date_from=(now-timedelta(days=365)).astimezone(timezone.utc).date().isoformat()
+        date_from=(now-timedelta(days=30)).astimezone(timezone.utc).date().isoformat()
         date_to=(now+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
-        events=v2_results(f"/events/?date_from={date_from}&date_to={date_to}&status=finished&limit=200",key)
-        by={str(eid(e)):e for e in events if eid(e) is not None}
-        for sid in ids:
-            e=by.get(sid)
-            if not e:
-                # Fallback to the exact event endpoint if it wasn't in the page set.
-                try:
-                    e=get_v2(f"/events/{sid}/",key)
-                except Exception:
-                    e=None
-            if not e:
-                continue
-            h,a=score_from_event(e)
-            if h is not None and a is not None:
-                out[sid]={
-                    "status":str(e.get("status") or "finished").lower(),
-                    "home_score":h,"away_score":a
-                }
+        events=all_results(f"/events/?upcoming=false&date_from={date_from}&date_to={date_to}",key)
+        predictions=all_results(f"/predictions/?upcoming=false&date_from={date_from}&date_to={date_to}",key)
     except requests.HTTPError as e:
-        s=e.response.status_code if e.response is not None else 502
-        return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
+        st=e.response.status_code if e.response is not None else 502
+        return jsonify({"error":f"Bzzoiro HTTP {st}"}),st
     except Exception as e:
         return jsonify({"error":f"Eroare API: {e}"}),502
+
+    out={}
+    by_event={str(eid(e)):e for e in events if eid(e) is not None}
+    for p in predictions:
+        pe=p.get("event")
+        if isinstance(pe,dict) and eid(pe) is not None and str(eid(pe)) not in by_event:
+            by_event[str(eid(pe))]=pe
+
+    for sid in ids:
+        e=by_event.get(sid)
+        if not e:
+            continue
+        h,a=score_from_event(e)
+        if h is not None and a is not None:
+            out[sid]={
+                "status":str(e.get("status") or "finished").lower(),
+                "home_score":h,
+                "away_score":a
+            }
     return jsonify({"results":out})
 
 @app.post("/api/search")
@@ -312,7 +308,7 @@ def search():
             window_start=ro_now
             window_end=ro_now+timedelta(days=days)
 
-        events,predictions=fetch_v2_window(key,window_start,window_end)
+        events,predictions=fetch_history_window(key,window_start,window_end)
     except requests.HTTPError as e:
         s=e.response.status_code if e.response is not None else 502
         return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
