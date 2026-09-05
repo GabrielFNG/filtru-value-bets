@@ -1,270 +1,55 @@
 <!doctype html>
 <html lang="ro">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>🎯 Filtru Value Bets</title>
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,sans-serif;background:#101418;color:#eee}
-.wrap{max-width:1200px;margin:0 auto;padding:22px}
-.card{background:#181e24;border:1px solid #2c343d;border-radius:16px;padding:22px;box-shadow:0 10px 35px #0005}
-h1{margin:0 0 8px;font-size:28px}
-.muted{color:#9da7b1;font-size:14px}
-.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0}
-.tab{border:0;border-radius:10px;padding:12px 18px;background:#252c33;color:#eee;font-weight:bold;cursor:pointer}
-.tab.active{background:#20c8e8;color:#061217}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
-label{display:block;color:#aeb7c0;font-size:13px;margin-bottom:6px}
-input,select{width:100%;padding:12px;border-radius:9px;border:1px solid #3b444e;background:#20272e;color:#fff;font-size:15px}
-button.search{width:100%;margin-top:18px;padding:14px;border:0;border-radius:10px;background:#20c8e8;color:#061217;font-size:16px;font-weight:bold;cursor:pointer}
-.summary{margin-top:16px;color:#b9c2ca}
-.table-wrap{overflow:auto;margin-top:14px}
-table{width:100%;border-collapse:collapse;min-width:750px}
-th,td{text-align:left;padding:12px;border-bottom:1px solid #2c343d}
-th{color:#8f9aa5;font-size:12px;text-transform:uppercase}
-.edge{font-weight:bold}
-.good{color:#58e58b}
-.bad{color:#ff7272}
-.empty{padding:28px;text-align:center;color:#9da7b1}
-@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}}
-@media(max-width:520px){.wrap{padding:10px}.card{padding:15px}.grid{grid-template-columns:1fr}}
-</style>
-</head>
-<body>
-<div class="wrap">
-<div class="card">
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#101418;color:#eee}.wrap{max-width:1200px;margin:auto;padding:22px}.card{background:#181e24;border:1px solid #2c343d;border-radius:16px;padding:22px;box-shadow:0 10px 35px #0005}h1{margin:0 0 8px;font-size:28px}.muted{color:#9da7b1;font-size:14px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tab{border:0;border-radius:10px;padding:12px 18px;background:#252c33;color:#eee;font-weight:bold;cursor:pointer}.tab.active{background:#20c8e8;color:#061217}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}label{display:block;color:#aeb7c0;font-size:13px;margin-bottom:6px}input,select{width:100%;padding:12px;border-radius:9px;border:1px solid #3b444e;background:#20272e;color:#fff;font-size:15px}button.search{width:100%;margin-top:18px;padding:14px;border:0;border-radius:10px;background:#20c8e8;color:#061217;font-size:16px;font-weight:bold;cursor:pointer}.summary{margin-top:16px;color:#b9c2ca}.table-wrap{overflow:auto;margin-top:14px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{text-align:left;padding:12px;border-bottom:1px solid #2c343d}th{color:#8f9aa5;font-size:12px;text-transform:uppercase}.edge{font-weight:bold}.good{color:#58e58b}.bad{color:#ff7272}.empty{padding:28px;text-align:center;color:#9da7b1}.pickbtn{border:1px solid #3b444e;background:#20272e;color:#fff;border-radius:8px;padding:7px 10px;cursor:pointer}.pickbtn.on{background:#20c8e8;color:#061217;border-color:#20c8e8}.status{font-weight:bold}.navtabs{display:flex;gap:8px;margin:18px 0}.navtab{border:0;border-radius:10px;padding:10px 15px;background:#252c33;color:#eee;font-weight:bold;cursor:pointer}.navtab.active{background:#20c8e8;color:#061217}.danger{background:#2b2020;border:1px solid #5a3434;color:#ffaaaa;padding:8px 12px;border-radius:8px;cursor:pointer}@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.wrap{padding:10px}.card{padding:15px}.grid{grid-template-columns:1fr}}
+</style></head>
+<body><div class="wrap"><div class="card">
 <h1>🎯 Filtru Value Bets</h1>
-<div class="muted">🔎 Modul implicit: Value Bets — filtrele de probabilitate, edge și cotă sunt active.</div>
-<div style="margin-top:12px">
-<label>Mod analiză</label>
-<select id="mode"><option value="filtered" selected>Value Bets — filtre active</option><option value="all_edges">Toate edge-urile — fără filtre numerice</option></select>
-</div>
-<div style="margin-top:16px">
-<label>Cheia API Bzzoiro</label>
-<input id="api_key" type="password" autocomplete="off" placeholder="Token API">
-<label style="display:flex;align-items:center;gap:8px;margin-top:8px;color:#9da7b1">
-<input id="save_key" type="checkbox" style="width:auto"> salvează cheia pe dispozitiv
-</label>
-</div>
-
-<div class="tabs">
-<button class="tab active" data-market="1x2">1X2</button>
-<button class="tab" data-market="gg">GG</button>
-<button class="tab" data-market="goals">Peste/Sub goluri</button>
-<button class="tab" data-market="all">Toate piețele</button>
-</div>
-
+<div class="muted">v11 — filtre active + Selecțiile mele + Istoric</div>
+<div class="navtabs"><button class="navtab active" data-view="bets">Value Bets</button><button class="navtab" data-view="selected">🎯 Selecțiile mele</button><button class="navtab" data-view="history">📚 Istoric</button></div>
+<div id="betsView">
+<div style="margin-top:12px"><label>Mod analiză</label><select id="mode"><option value="filtered" selected>Value Bets — filtre active</option><option value="all_edges">Toate edge-urile — fără filtre numerice</option></select></div>
+<div style="margin-top:16px"><label>Cheia API Bzzoiro</label><input id="api_key" type="password" autocomplete="off" placeholder="Token API"><label style="display:flex;align-items:center;gap:8px;margin-top:8px;color:#9da7b1"><input id="save_key" type="checkbox" style="width:auto"> salvează cheia pe dispozitiv</label></div>
+<div class="tabs"><button class="tab active" data-market="1x2">1X2</button><button class="tab" data-market="gg">GG</button><button class="tab" data-market="goals">Peste/Sub goluri</button><button class="tab" data-market="all">Toate piețele</button></div>
 <div class="grid">
-<div>
-<label>Zile înainte</label>
-<input id="days" type="number" min="0" value="1">
+<div><label>Zile înainte</label><input id="days" type="number" min="0" value="1"></div>
+<div><label>Ligă / competiție</label><select id="league"><option value="all">Toate ligile</option></select></div>
+<div><label>Echipă</label><select id="team"><option value="all">Toate echipele</option></select></div>
+<div><label>Probabilitate minimă (%)</label><input id="min_prob" type="number" min="0" max="100" step="0.1" value="0"></div>
+<div><label>Edge minim (pp)</label><input id="min_edge" type="number" step="0.1" value="0"></div>
+<div><label>Cotă minimă</label><input id="odds_min" type="number" min="1" step="0.01" value="1"></div>
+<div><label>Cotă maximă</label><input id="odds_max" type="number" min="1" step="0.01" value="100"></div>
+<div><label>Max. selecții</label><input id="max_picks" type="number" min="1" value="30"></div>
+<div id="selection_box"><label>Selecție</label><select id="selection"><option value="all">Toate</option></select></div>
+<div id="line_box" style="display:none"><label>Linie goluri</label><select id="line"><option value="0.5">0.5</option><option value="1.5">1.5</option><option value="2.5" selected>2.5</option><option value="3.5">3.5</option><option value="4.5">4.5</option></select></div>
+</div><button class="search" id="search">🔎 Caută value bets</button><div class="summary" id="summary">Aștept căutarea...</div>
+<div class="table-wrap"><table><thead><tr><th>Selectează</th><th>Meci</th><th>Ligă</th><th>Piață / selecție</th><th>Prob.</th><th>Cotă</th><th>Edge</th></tr></thead><tbody id="rows"></tbody></table></div>
 </div>
-
-<div>
-<label>Ligă / competiție</label>
-<select id="league"><option value="all">Toate ligile</option></select>
-</div>
-
-<div>
-<label>Probabilitate minimă (%)</label>
-<input id="min_prob" type="number" min="0" max="100" step="0.1" value="0">
-</div>
-
-<div>
-<label>Edge minim (pp)</label>
-<input id="min_edge" type="number" step="0.1" value="0">
-</div>
-
-<div>
-<label>Cotă minimă</label>
-<input id="odds_min" type="number" min="1" step="0.01" value="1">
-</div>
-
-<div>
-<label>Cotă maximă</label>
-<input id="odds_max" type="number" min="1" step="0.01" value="100">
-</div>
-
-<div>
-<label>Max. selecții</label>
-<input id="max_picks" type="number" min="1" value="30">
-</div>
-
-<div id="selection_box">
-<label>Selecție</label>
-<select id="selection">
-<option value="all">Toate</option>
-</select>
-</div>
-
-<div id="line_box" style="display:none">
-<label>Linie goluri</label>
-<select id="line">
-<option value="0.5">0.5</option>
-<option value="1.5">1.5</option>
-<option value="2.5" selected>2.5</option>
-<option value="3.5">3.5</option>
-<option value="4.5">4.5</option>
-</select>
-</div>
-</div>
-
-<button class="search" id="search">🔎 Caută value bets</button>
-
-<div class="summary" id="summary">Aștept căutarea...</div>
-
-<div class="table-wrap">
-<table>
-<thead>
-<tr>
-<th>Meci</th><th>Ligă</th><th>Piață / selecție</th><th>Prob.</th><th>Cotă</th><th>Edge</th>
-</tr>
-</thead>
-<tbody id="rows"></tbody>
-</table>
-</div>
-</div>
-</div>
-
+<div id="selectedView" style="display:none"><div class="summary" id="selectedSummary"></div><div class="table-wrap"><table><thead><tr><th>Data selecției</th><th>Meci</th><th>Ligă</th><th>Piață / selecție</th><th>Prob.</th><th>Cotă</th><th>Edge</th><th>Status</th><th></th></tr></thead><tbody id="selectedRows"></tbody></table></div></div>
+<div id="historyView" style="display:none"><div class="summary" id="historySummary"></div><button class="danger" id="clearHistory">Șterge istoricul</button><div class="table-wrap"><table><thead><tr><th>Data selecției</th><th>Data meciului</th><th>Meci</th><th>Ligă</th><th>Piață / selecție</th><th>Prob.</th><th>Cotă</th><th>Edge</th><th>Rezultat</th></tr></thead><tbody id="historyRows"></tbody></table></div></div>
+</div></div>
 <script>
-let market="1x2";
-
-const tabs=[...document.querySelectorAll(".tab")];
-const selection=document.getElementById("selection");
-const lineBox=document.getElementById("line_box");
-const selectionBox=document.getElementById("selection_box");
-
-function updateControls(){
-  selection.innerHTML="";
-  if(market==="1x2"){
-    [["all","Toate"],["home","1 — Gazde"],["draw","X — Egal"],["away","2 — Oaspeți"]]
-      .forEach(x=>selection.add(new Option(x[1],x[0])));
-  }else if(market==="gg"){
-    [["all","Toate"],["yes","GG Da"],["no","GG Nu"]]
-      .forEach(x=>selection.add(new Option(x[1],x[0])));
-  }else if(market==="goals"){
-    [["all","Toate"],["over","Peste"],["under","Sub"]]
-      .forEach(x=>selection.add(new Option(x[1],x[0])));
-  }else{
-    selection.add(new Option("Toate","all"));
-  }
-  selectionBox.style.display=market==="all"?"none":"block";
-  lineBox.style.display=market==="goals"||market==="all"?"block":"none";
-}
-
-tabs.forEach(t=>t.onclick=()=>{
-  tabs.forEach(x=>x.classList.remove("active"));
-  t.classList.add("active");
-  market=t.dataset.market;
-  updateControls();
-});
-
-function dateStr(d){
-  return d.toISOString().slice(0,10);
-}
-
-async function search(){
-  const days=Math.max(0,Number(document.getElementById("days").value||1));
-  const now=new Date();
-  const from=dateStr(now);
-  const toDate=new Date(now);
-  toDate.setDate(toDate.getDate()+days);
-  const to=dateStr(toDate);
-
-  const payload={
-    date_from:from,
-    date_to:to,
-    mode:document.getElementById("mode").value,
-    market,
-    selection:selection.value,
-    line:document.getElementById("line").value,
-    league:document.getElementById("league").value,
-    min_prob:Number(document.getElementById("min_prob").value||0),
-    min_edge:Number(document.getElementById("min_edge").value||0),
-    odds_min:Number(document.getElementById("odds_min").value||1),
-    odds_max:Number(document.getElementById("odds_max").value||100),
-    max_picks:Number(document.getElementById("max_picks").value||30)
-  };
-
-  const summary=document.getElementById("summary");
-  const rows=document.getElementById("rows");
-  summary.textContent="Se caută...";
-  rows.innerHTML="";
-
-  try{
-    let key=document.getElementById("api_key").value.trim();
-    if(!key) key=localStorage.getItem("bzzoiro_api_key")||"";
-    if(!key){
-      summary.innerHTML='<span class="bad">Lipsește API Key.</span>';
-      return;
-    }
-    if(document.getElementById("save_key").checked){
-      localStorage.setItem("bzzoiro_api_key",key);
-    }
-
-    const r=await fetch("/api/search",{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "Authorization":"Token "+key
-      },
-      body:JSON.stringify(payload)
-    });
-
-    const data=await r.json();
-    if(!r.ok){
-      summary.innerHTML='<span class="bad">'+(data.error||"Eroare API")+'</span>';
-      return;
-    }
-
-    const leagues=data.leagues||[];
-    const current=document.getElementById("league").value;
-    document.getElementById("league").innerHTML='<option value="all">Toate ligile</option>';
-    leagues.forEach(l=>document.getElementById("league").add(new Option(l,l)));
-    if(leagues.includes(current)) document.getElementById("league").value=current;
-
-    summary.textContent=
-      `${(data.candidates||[]).length} edge-uri calculabile · `+
-      `${data.events||0} meciuri · ${data.predictions||0} predicții · ${leagues.length} ligi · `+
-      `${data.matched||0} potriviri · ${data.with_probabilities||0} cu probabilități · ${data.with_odds||0} cu cote`;
-
-    (data.candidates||[]).forEach(x=>{
-      const tr=document.createElement("tr");
-      tr.innerHTML=
-        `<td>${esc(x.home)} — ${esc(x.away)}<br><span class="muted">${esc(x.kickoff)}</span></td>`+
-        `<td>${esc(x.league)}</td>`+
-        `<td>${esc(x.market)} · <b>${esc(x.pick)}</b></td>`+
-        `<td>${Number(x.prob).toFixed(1)}%</td>`+
-        `<td>${Number(x.odds).toFixed(2)}</td>`+
-        `<td class="edge ${Number(x.edge)>=0?"good":"bad"}">${Number(x.edge)>=0?"+":""}${Number(x.edge).toFixed(1)} pp</td>`;
-      rows.appendChild(tr);
-    });
-
-    if(!(data.candidates||[]).length){
-      rows.innerHTML='<tr><td colspan="6" class="empty">Nicio selecție nu îndeplinește filtrele.</td></tr>';
-    }
-  }catch(e){
-    summary.innerHTML='<span class="bad">Eroare de conexiune: '+esc(e.message)+'</span>';
-  }
-}
-
-function esc(s){
-  return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-}
-
-const modeSelect=document.getElementById("mode");
-function updateModeLabels(){
-  const all=modeSelect.value==="all_edges";
-  document.querySelector('label[for="__none__"]');
-  const labels=[...document.querySelectorAll(".grid label")];
-  const texts={min_prob:all?"Probabilitate minimă (%) — ignorată în analiza completă":"Probabilitate minimă (%)",min_edge:all?"Edge minim (pp) — ignorat în analiza completă":"Edge minim (pp)",odds_min:all?"Cotă minimă — ignorată în analiza completă":"Cotă minimă",odds_max:all?"Cotă maximă — ignorată în analiza completă":"Cotă maximă",max_picks:all?"Max. selecții — ignorat în analiza completă":"Max. selecții"};
-  Object.entries(texts).forEach(([id,text])=>{ const el=document.getElementById(id); if(el&&el.previousElementSibling) el.previousElementSibling.textContent=text; });
-}
-modeSelect.onchange=updateModeLabels;
-document.getElementById("search").onclick=search;
-updateControls();
-updateModeLabels();
-</script>
-</body>
-</html>
+let market="1x2", currentCandidates=[];
+const KEY="bzzoiro_api_key", SEL="vb_selected_v11", HIST="vb_history_v11";
+const $=id=>document.getElementById(id); const tabs=[...document.querySelectorAll('.tab')];
+function read(k){try{return JSON.parse(localStorage.getItem(k)||'[]')}catch{return[]}} function write(k,v){localStorage.setItem(k,JSON.stringify(v))}
+function updateControls(){const s=$('selection');s.innerHTML='';if(market==='1x2'){[['all','Toate'],['home','1 — Gazde'],['draw','X — Egal'],['away','2 — Oaspeți']].forEach(x=>s.add(new Option(x[1],x[0])))}else if(market==='gg'){[['all','Toate'],['yes','GG Da'],['no','GG Nu']].forEach(x=>s.add(new Option(x[1],x[0])))}else if(market==='goals'){[['all','Toate'],['over','Peste'],['under','Sub']].forEach(x=>s.add(new Option(x[1],x[0])))}else s.add(new Option('Toate','all'));$('selection_box').style.display=market==='all'?'none':'block';$('line_box').style.display=market==='goals'||market==='all'?'block':'none'}
+tabs.forEach(t=>t.onclick=()=>{tabs.forEach(x=>x.classList.remove('active'));t.classList.add('active');market=t.dataset.market;updateControls()});
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function keyFor(x){return [x.event_id,x.market,x.pick,x.odds].join('|')}
+function dateOnly(s){if(!s)return '';return new Date(s).toLocaleDateString('ro-RO')}
+function fmtDT(s){if(!s)return '';const d=new Date(s);return isNaN(d)?esc(s):d.toLocaleString('ro-RO')}
+function selectedKeys(){return new Set(read(SEL).map(x=>x.key))}
+function renderCandidates(){const rows=$('rows'), keys=selectedKeys();rows.innerHTML='';currentCandidates.forEach((x,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td><button class="pickbtn ${keys.has(keyFor(x))?'on':''}" data-i="${i}">${keys.has(keyFor(x))?'✓ Selectat':'☐ Selectează'}</button></td><td>${esc(x.home)} — ${esc(x.away)}<br><span class="muted">${fmtDT(x.kickoff)}</span></td><td>${esc(x.league)}</td><td>${esc(x.market)} · <b>${esc(x.pick)}</b></td><td>${Number(x.prob).toFixed(1)}%</td><td>${Number(x.odds).toFixed(2)}</td><td class="edge ${Number(x.edge)>=0?'good':'bad'}">${Number(x.edge)>=0?'+':''}${Number(x.edge).toFixed(1)} pp</td>`;rows.appendChild(tr)});if(!currentCandidates.length)rows.innerHTML='<tr><td colspan="7" class="empty">Nicio selecție nu îndeplinește filtrele.</td></tr>';rows.querySelectorAll('.pickbtn').forEach(b=>b.onclick=()=>togglePick(Number(b.dataset.i)))}
+function togglePick(i){const x=currentCandidates[i];if(!x)return;let a=read(SEL),k=keyFor(x),idx=a.findIndex(z=>z.key===k);if(idx>=0)a.splice(idx,1);else a.push({...x,key:k,selected_at:new Date().toISOString(),result_status:'În așteptare',result:null});write(SEL,a);renderCandidates();renderSelected();}
+function renderSelected(){const a=read(SEL),r=$('selectedRows');r.innerHTML='';$('selectedSummary').textContent=`${a.length} selecții în așteptare / salvate`;a.forEach((x,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${fmtDT(x.selected_at)}</td><td>${esc(x.home)} — ${esc(x.away)}<br><span class="muted">${fmtDT(x.kickoff)}</span></td><td>${esc(x.league)}</td><td>${esc(x.market)} · <b>${esc(x.pick)}</b></td><td>${Number(x.prob).toFixed(1)}%</td><td>${Number(x.odds).toFixed(2)}</td><td class="edge ${Number(x.edge)>=0?'good':'bad'}">${Number(x.edge)>=0?'+':''}${Number(x.edge).toFixed(1)} pp</td><td class="status">${statusHtml(x)}</td><td><button class="pickbtn" data-i="${i}">Elimină</button></td>`;r.appendChild(tr)});if(!a.length)r.innerHTML='<tr><td colspan="9" class="empty">Nu ai selecții salvate.</td></tr>';r.querySelectorAll('.pickbtn').forEach(b=>b.onclick=()=>{let z=read(SEL);z.splice(Number(b.dataset.i),1);write(SEL,z);renderSelected();renderCandidates()})}
+function statusHtml(x){if(x.result_status==='Corect')return '<span class="good">🟢 Corect</span>';if(x.result_status==='Greșit')return '<span class="bad">🔴 Greșit</span>';if(x.result)return esc(x.result);return '⚪ În așteptare'}
+function renderHistory(){const a=read(HIST).sort((x,y)=>new Date(y.selected_at)-new Date(x.selected_at)),r=$('historyRows');r.innerHTML='';$('historySummary').textContent=`${a.length} selecții în istoric`;a.forEach(x=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${fmtDT(x.selected_at)}</td><td>${dateOnly(x.kickoff)}</td><td>${esc(x.home)} — ${esc(x.away)}</td><td>${esc(x.league)}</td><td>${esc(x.market)} · <b>${esc(x.pick)}</b></td><td>${Number(x.prob).toFixed(1)}%</td><td>${Number(x.odds).toFixed(2)}</td><td class="edge ${Number(x.edge)>=0?'good':'bad'}">${Number(x.edge)>=0?'+':''}${Number(x.edge).toFixed(1)} pp</td><td class="status">${statusHtml(x)}${x.score?'<br><span class="muted">'+esc(x.score)+'</span>':''}</td>`;r.appendChild(tr)});if(!a.length)r.innerHTML='<tr><td colspan="9" class="empty">Istoricul este gol.</td></tr>'}
+async function checkResults(){const a=read(SEL);if(!a.length)return;let key=$('api_key').value.trim()||localStorage.getItem(KEY)||'';if(!key)return;try{const ids=[...new Set(a.map(x=>x.event_id).filter(Boolean))];const r=await fetch('/api/check_results',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Token '+key},body:JSON.stringify({event_ids:ids})});if(!r.ok)return;const d=await r.json(),res=d.results||{};let changed=false;const remain=[];const hist=read(HIST);a.forEach(x=>{const q=res[String(x.event_id)];if(!q||q.home_score===null||q.away_score===null){remain.push(x);return}const hs=q.home_score,as=q.away_score;let ok=null;if(x.market==='1X2')ok=x.pick==='1'?hs>as:x.pick==='X'?hs===as:hs<as;else if(x.market==='GG')ok=x.pick==='GG Da'?(hs>0&&as>0):(hs===0||as===0);else if(x.market==='Peste/Sub goluri'){const line=Number(x.pick.split(' ')[1]);ok=x.pick.startsWith('Peste')?(hs+as>line):(hs+as<line)}if(ok===null){remain.push(x);return}x.result_status=ok?'Corect':'Greșit';x.result=`${hs}-${as}`;const hi=hist.findIndex(z=>z.key===x.key);if(hi>=0)hist[hi]=x;else hist.push(x);changed=true});if(changed){write(SEL,remain);write(HIST,hist);renderSelected();renderHistory();renderCandidates()}}catch(e){}}
+async function search(){const days=Math.max(0,Number($('days').value||1));const payload={mode:$('mode').value,market,selection:$('selection').value,line:$('line').value,league:$('league').value,team:$('team').value,min_prob:Number($('min_prob').value||0),min_edge:Number($('min_edge').value||0),odds_min:Number($('odds_min').value||1),odds_max:Number($('odds_max').value||100),max_picks:Number($('max_picks').value||30),days};$('summary').textContent='Se caută...';$('rows').innerHTML='';let key=$('api_key').value.trim()||localStorage.getItem(KEY)||'';if(!key){$('summary').innerHTML='<span class="bad">Lipsește API Key.</span>';return}if($('save_key').checked)localStorage.setItem(KEY,key);try{const r=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Token '+key},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok){$('summary').innerHTML='<span class="bad">'+esc(d.error||'Eroare API')+'</span>';return}currentCandidates=d.candidates||[];const leagues=d.leagues||[],teams=d.teams||[];const lv=$('league').value,tv=$('team').value;$('league').innerHTML='<option value="all">Toate ligile</option>';leagues.forEach(x=>$('league').add(new Option(x,x)));if(leagues.includes(lv))$('league').value=lv;$('team').innerHTML='<option value="all">Toate echipele</option>';teams.forEach(x=>$('team').add(new Option(x,x)));if(teams.includes(tv))$('team').value=tv;$('summary').textContent=`${currentCandidates.length} selecții · ${d.events||0} meciuri · ${d.predictions||0} predicții · ${leagues.length} ligi`;renderCandidates();checkResults()}catch(e){$('summary').innerHTML='<span class="bad">Eroare de conexiune: '+esc(e.message)+'</span>'}}
+function switchView(v){$('betsView').style.display=v==='bets'?'block':'none';$('selectedView').style.display=v==='selected'?'block':'none';$('historyView').style.display=v==='history'?'block':'none';document.querySelectorAll('.navtab').forEach(b=>b.classList.toggle('active',b.dataset.view===v));if(v==='selected'){renderSelected();checkResults()}if(v==='history')renderHistory()}
+document.querySelectorAll('.navtab').forEach(b=>b.onclick=()=>switchView(b.dataset.view));$('search').onclick=search;$('clearHistory').onclick=()=>{if(confirm('Ștergi tot istoricul?')){write(HIST,[]);renderHistory()}};const saved=localStorage.getItem(KEY);if(saved)$('api_key').value=saved;updateControls();renderSelected();renderHistory();
+</script></body></html>
