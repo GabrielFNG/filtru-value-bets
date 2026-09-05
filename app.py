@@ -5,7 +5,6 @@ from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 API_BASE = "https://sports.bzzoiro.com/api"
-API_V2 = "https://sports.bzzoiro.com/api/v2"
 TIMEOUT = 25
 
 def get(path, key):
@@ -26,115 +25,6 @@ def all_results(path, key, pages=10):
             if nxt.startswith(prefix):
                 nxt=nxt[len(prefix):]; break
     return out
-
-
-def get_v2(path, key):
-    r=requests.get(API_V2 + path,
-        headers={"Authorization": f"Token {key}", "Accept":"application/json"},
-        timeout=TIMEOUT)
-    r.raise_for_status()
-    return r.json()
-
-def v2_results(path, key):
-    out=[]; nxt=path
-    for _ in range(20):
-        data=get_v2(nxt,key)
-        out += data.get("results",[]) if isinstance(data,dict) else (data if isinstance(data,list) else [])
-        if not isinstance(data,dict) or not data.get("next"): break
-        nxt=data["next"]
-        for prefix in (API_V2, "https://sports.bzzoiro.com"):
-            if nxt.startswith(prefix):
-                nxt=nxt[len(prefix):]
-                break
-    return out
-
-def normalize_v2_event(e, odds_map=None):
-    x=dict(e or {})
-    x["id"]=eid(e)
-    x["event_date"]=e.get("event_date") or e.get("kickoff") or e.get("start_time") or e.get("date")
-    if "home_team" not in x:
-        x["home_team"]=e.get("home") or e.get("home_name")
-    if "away_team" not in x:
-        x["away_team"]=e.get("away") or e.get("away_name")
-    if "league" not in x:
-        x["league"]=e.get("competition") or e.get("competition_name") or e.get("league_name")
-    # v2 score fields are already home_score / away_score on event objects.
-    if odds_map and str(x["id"]) in odds_map:
-        o=odds_map[str(x["id"])]
-        x.update(o)
-    return x
-
-def v2_odds_map(rows):
-    out={}
-    for r in rows:
-        event_id=r.get("event_id") or r.get("match_id")
-        if event_id is None:
-            continue
-        oid=str(event_id)
-        market=str(r.get("market") or "").lower()
-        outcome=str(r.get("outcome") or "").lower()
-        odd=num(r.get("decimal_odds") if r.get("decimal_odds") is not None else r.get("odds"))
-        if odd is None:
-            continue
-        out.setdefault(oid,{})
-        if market=="1x2":
-            if outcome=="home": out[oid]["odds_home"]=odd
-            elif outcome=="draw": out[oid]["odds_draw"]=odd
-            elif outcome=="away": out[oid]["odds_away"]=odd
-        elif market=="btts":
-            if outcome=="yes": out[oid]["odds_btts_yes"]=odd
-            elif outcome=="no": out[oid]["odds_btts_no"]=odd
-        elif market in ("over_under_05","over_under_15","over_under_25","over_under_35","over_under_45"):
-            line=market.replace("over_under_","")
-            if outcome=="over": out[oid]["odds_over_"+line]=odd
-            elif outcome=="under": out[oid]["odds_under_"+line]=odd
-    return out
-
-def normalize_v2_prediction(p):
-    x=dict(p or {})
-    ev=p.get("event")
-    if isinstance(ev,dict):
-        x["event"]=normalize_v2_event(ev)
-
-    m=p.get("markets") or {}
-    mr=m.get("match_result") or {}
-    ou=m.get("over_under") or {}
-    b=m.get("btts") or {}
-
-    if "prob_home_win" not in x: x["prob_home_win"]=mr.get("prob_home")
-    if "prob_draw" not in x: x["prob_draw"]=mr.get("prob_draw")
-    if "prob_away_win" not in x: x["prob_away_win"]=mr.get("prob_away")
-    if "prob_over_15" not in x: x["prob_over_15"]=ou.get("prob_over_15")
-    if "prob_over_25" not in x: x["prob_over_25"]=ou.get("prob_over_25")
-    if "prob_over_35" not in x: x["prob_over_35"]=ou.get("prob_over_35")
-    if "prob_btts_yes" not in x: x["prob_btts_yes"]=b.get("prob_yes")
-
-    # Keep the event's final score available to the existing result parser.
-    if isinstance(ev,dict):
-        for k in ("home_score","away_score","status"):
-            if k in ev:
-                x[k]=ev[k]
-    return x
-
-def fetch_history_window(key, start_ro, end_ro):
-    # Keep the stable v1 endpoints that already return embedded odds and
-    # prediction probabilities. Query a small UTC calendar buffer, then filter
-    # precisely in Romania time in /api/search.
-    api_from=(start_ro-timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
-    api_to=(end_ro+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
-    events=all_results(f"/events/?upcoming={'false' if start_ro < datetime.now(ZoneInfo('Europe/Bucharest')) else 'true'}&date_from={api_from}&date_to={api_to}",key)
-    predictions=all_results(f"/predictions/?upcoming={'false' if start_ro < datetime.now(ZoneInfo('Europe/Bucharest')) else 'true'}&date_from={api_from}&date_to={api_to}",key)
-
-    # Historical prediction records can contain the complete event object.
-    by_event={str(eid(e)):e for e in events if eid(e) is not None}
-    for p in predictions:
-        pe=p.get("event")
-        if isinstance(pe,dict) and eid(pe) is not None:
-            pid=str(eid(pe))
-            if pid not in by_event:
-                by_event[pid]=pe
-    return list(by_event.values()), predictions
-
 
 def num(x):
     try: return float(x)
@@ -246,77 +136,135 @@ def check_results():
     ids={str(x) for x in (q.get("event_ids") or [])}
     if not ids:return jsonify({"results":{}})
     try:
-        now=datetime.now(ZoneInfo("Europe/Bucharest"))
-        date_from=(now-timedelta(days=30)).astimezone(timezone.utc).date().isoformat()
-        date_to=(now+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+        # v1 history is page-number paginated. Pull the recent archive window
+        # where selected matches can realistically be, then match by event id.
+        now=datetime.now(timezone.utc)
+        date_from=(now-timedelta(days=30)).date().isoformat()
+        date_to=now.date().isoformat()
         events=all_results(f"/events/?upcoming=false&date_from={date_from}&date_to={date_to}",key)
         predictions=all_results(f"/predictions/?upcoming=false&date_from={date_from}&date_to={date_to}",key)
     except requests.HTTPError as e:
-        st=e.response.status_code if e.response is not None else 502
-        return jsonify({"error":f"Bzzoiro HTTP {st}"}),st
-    except Exception as e:
-        return jsonify({"error":f"Eroare API: {e}"}),502
-
+        s=e.response.status_code if e.response is not None else 502
+        return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
+    except Exception as e:return jsonify({"error":f"Eroare API: {e}"}),502
     out={}
-    by_event={str(eid(e)):e for e in events if eid(e) is not None}
+    pred_by_event={}
     for p in predictions:
-        pe=p.get("event")
-        if isinstance(pe,dict) and eid(pe) is not None and str(eid(pe)) not in by_event:
-            by_event[str(eid(pe))]=pe
-
-    for sid in ids:
-        e=by_event.get(sid)
-        if not e:
-            continue
+        i=event_id_from_prediction(p)
+        if i is not None: pred_by_event[str(i)]=p
+    for e in events:
+        i=eid(e)
+        if i is None or str(i) not in ids: continue
         h,a=score_from_event(e)
-        if h is not None and a is not None:
-            out[sid]={
-                "status":str(e.get("status") or "finished").lower(),
-                "home_score":h,
-                "away_score":a
-            }
+        status=str(e.get("status") or "").lower()
+        if h is None or a is None:
+            pp=pred_by_event.get(str(i))
+            if pp:
+                h,a=score_from_prediction(pp)
+                if not status: status=str(pp.get("status") or "").lower()
+        out[str(i)]={"status":status,"home_score":h,"away_score":a}
+    # If an event is present only inside a historical prediction, still return its score.
+    for i in ids:
+        if i in out: continue
+        pp=pred_by_event.get(i)
+        if pp:
+            h,a=score_from_prediction(pp)
+            if h is not None and a is not None:
+                out[i]={"status":str(pp.get("status") or "finished").lower(),"home_score":h,"away_score":a}
     return jsonify({"results":out})
 
 
-@app.post("/api/debug_window")
-def debug_window():
+@app.post("/api/debug_search")
+def debug_search():
     key=request.headers.get("Authorization","").replace("Token ","").strip()
-    if not key:return jsonify({"error":"Lipsește API Key"}),401
+    if not key:
+        return jsonify({"error":"Lipsește API Key"}),401
     q=request.get_json(silent=True) or {}
-    try: days=int(q.get("days",0))
-    except: days=0
     try:
+        days=int(q.get("days",0))
         ro_now=datetime.now(ZoneInfo("Europe/Bucharest"))
-        if days < 0:
+        if days<0:
             ws=ro_now+timedelta(days=days); we=ro_now
         elif days==0:
             ws=ro_now.replace(hour=0,minute=0,second=0,microsecond=0); we=ws+timedelta(days=1)
         else:
             ws=ro_now; we=ro_now+timedelta(days=days)
-        af=(ws-timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
-        at=(we+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
-        modes=["true","false"] if days==0 else (["false"] if days<0 else ["true"])
-        report={"days":days,"window_start":ws.isoformat(),"window_end":we.isoformat(),
-                "api_from":af,"api_to":at,"modes":modes,"calls":[]}
-        for up in modes:
-            es=all_results(f"/events/?upcoming={up}&date_from={af}&date_to={at}",key)
-            ps=all_results(f"/predictions/?upcoming={up}&date_from={af}&date_to={at}",key)
-            eids={str(eid(e)) for e in es if eid(e) is not None}
-            peids={str(event_id_from_prediction(p)) for p in ps if event_id_from_prediction(p) is not None}
-            overlap=len(eids & peids)
-            inwin=0
-            for e in es:
-                d=dt(e)
-                if d:
-                    dr=d.astimezone(ZoneInfo("Europe/Bucharest"))
-                    if ws<=dr<we: inwin+=1
-            report["calls"].append({"upcoming":up,"events":len(es),"predictions":len(ps),
-                                    "event_ids":len(eids),"prediction_event_ids":len(peids),
-                                    "overlap":overlap,"events_in_exact_window":inwin,
-                                    "sample_prediction_ids":[event_id_from_prediction(p) for p in ps[:5]]})
-        return jsonify(report)
+
+        # Same legacy API path as the known-working v12.5 search.
+        if days<0:
+            af=(ws-timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            at=(we+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            ep=f"/events/?upcoming=false&date_from={af}&date_to={at}"
+            pp=f"/predictions/?upcoming=false&date_from={af}&date_to={at}"
+        elif days==0:
+            af=(ws-timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            at=(we+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            ep=f"/events/?upcoming=false&date_from={af}&date_to={at}"
+            pp=f"/predictions/?upcoming=false&date_from={af}&date_to={at}"
+        else:
+            af=(ws-timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            at=(we+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+            ep=f"/events/?upcoming=true&date_from={af}&date_to={at}"
+            pp=f"/predictions/?upcoming=true&date_from={af}&date_to={at}"
+
+        events=all_results(ep,key)
+        predictions=all_results(pp,key)
+
+        event_ids={str(eid(e)) for e in events if eid(e) is not None}
+        pred_ids={str(event_id_from_prediction(p)) for p in predictions if event_id_from_prediction(p) is not None}
+
+        # Count exact time-window events.
+        in_window=0
+        for e in events:
+            d=dt(e)
+            if d and ws <= d.astimezone(ZoneInfo("Europe/Bucharest")) < we:
+                in_window+=1
+
+        # Count prediction records with usable model/odds fields.
+        field_stats={"pred_total":len(predictions),"with_event_id":0,
+                     "with_prob":0,"with_odds":0,"with_both":0}
+        samples=[]
+        for p in predictions[:20]:
+            pid=event_id_from_prediction(p)
+            if pid is not None: field_stats["with_event_id"]+=1
+            probs=[p.get(k) for k in (
+                "prob_home_win","prob_draw","prob_away_win","prob_btts_yes",
+                "prob_over_15","prob_over_25","prob_over_35")]
+            ev=p.get("event") if isinstance(p.get("event"),dict) else {}
+            odds=[ev.get(k) for k in (
+                "odds_home","odds_draw","odds_away","odds_btts_yes",
+                "odds_btts_no","odds_over_15","odds_under_15",
+                "odds_over_25","odds_under_25","odds_over_35","odds_under_35")]
+            hp=any(num(x) is not None for x in probs)
+            ho=any(num(x) is not None and num(x)>0 for x in odds)
+            if hp: field_stats["with_prob"]+=1
+            if ho: field_stats["with_odds"]+=1
+            if hp and ho: field_stats["with_both"]+=1
+            if len(samples)<5:
+                samples.append({
+                    "id":p.get("id"),"event_id":pid,
+                    "event_date":ev.get("event_date"),
+                    "home":ev.get("home_team") or ev.get("home_name"),
+                    "away":ev.get("away_team") or ev.get("away_name"),
+                    "prob_home_win":p.get("prob_home_win"),
+                    "prob_draw":p.get("prob_draw"),
+                    "prob_away_win":p.get("prob_away_win"),
+                    "odds_home":ev.get("odds_home"),
+                    "odds_draw":ev.get("odds_draw"),
+                    "odds_away":ev.get("odds_away")
+                })
+
+        return jsonify({
+            "days":days,"window_start":ws.isoformat(),"window_end":we.isoformat(),
+            "api_from":af,"api_to":at,
+            "events":len(events),"predictions":len(predictions),
+            "event_ids":len(event_ids),"prediction_event_ids":len(pred_ids),
+            "overlap":len(event_ids & pred_ids),
+            "events_in_exact_window":in_window,
+            "field_stats":field_stats,"samples":samples
+        })
     except Exception as e:
-        return jsonify({"error":f"{type(e).__name__}: {e}"}),502
+        return jsonify({"error":type(e).__name__+": "+str(e)}),502
 
 @app.post("/api/search")
 def search():
@@ -336,34 +284,63 @@ def search():
     lf=str(q.get("line","2.5")); league_filter=str(q.get("league","all")); team_filter=str(q.get("team","all"))
 
     try:
-        # Active BSD v2: date_from/date_to are supported directly and pagination
-        # is limit/offset. We still apply the exact Romania-time window locally.
-        ro_now=datetime.now(ZoneInfo("Europe/Bucharest"))
+        # v1 is the endpoint currently used by the app. Important: v1 uses
+        # page-number pagination (not limit/offset) and supports date_from/date_to.
+        # For historical searches, request the relevant calendar dates directly
+        # instead of accidentally reading only the oldest 200 records.
         if days < 0:
-            window_start=ro_now+timedelta(days=days)
-            window_end=ro_now
-        elif days == 0:
-            window_start=ro_now.replace(hour=0,minute=0,second=0,microsecond=0)
-            window_end=window_start+timedelta(days=1)
+            utc_now = datetime.now(timezone.utc)
+            hist_start = utc_now + timedelta(days=days)
+            hist_end = utc_now
+            date_from = hist_start.date().isoformat()
+            date_to = hist_end.date().isoformat()
+            event_path = f"/events/?upcoming=false&date_from={date_from}&date_to={date_to}"
+            pred_path = f"/predictions/?upcoming=false&date_from={date_from}&date_to={date_to}"
         else:
-            window_start=ro_now
-            window_end=ro_now+timedelta(days=days)
-
-        events,predictions=fetch_history_window(key,window_start,window_end)
+            event_path = "/events/?limit=200"
+            pred_path = "/predictions/?limit=200"
+        events=all_results(event_path,key)
+        predictions=all_results(pred_path,key)
+        # Historical prediction records can contain their own embedded event.
+        # Merge those embedded events so past matches are not lost if the
+        # generic events endpoint only exposes a recent slice.
+        if days < 0:
+            by_embedded={}
+            for p in predictions:
+                pe=p.get("event")
+                if isinstance(pe,dict) and eid(pe) is not None:
+                    by_embedded[str(eid(pe))]=pe
+            merged={str(eid(e)):e for e in events if eid(e) is not None}
+            for k,e in by_embedded.items():
+                if k not in merged: merged[k]=e
+            events=list(merged.values())
     except requests.HTTPError as e:
         s=e.response.status_code if e.response is not None else 502
         return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
     except Exception as e:return jsonify({"error":f"Eroare API: {e}"}),502
 
-    start=window_start
-    end=window_end
+    now=datetime.now(timezone.utc)
+    # Date window rules:
+    # 0  = calendar day today (Romania time), 00:00-23:59:59
+    # >0 = next N*24 hours from the moment of search
+    # <0 = previous N*24 hours from the moment of search
+    if days == 0:
+        local_now=now.astimezone(ZoneInfo("Europe/Bucharest"))
+        local_start=local_now.replace(hour=0,minute=0,second=0,microsecond=0)
+        local_end=local_start+timedelta(days=1)
+        start=local_start.astimezone(timezone.utc)
+        end=local_end.astimezone(timezone.utc)
+    elif days > 0:
+        start=now
+        end=now+timedelta(days=days)
+    else:
+        start=now+timedelta(days=days)
+        end=now
+
     ev=[]
     for e in events:
         d=dt(e)
-        if not d:
-            continue
-        d_ro=d.astimezone(ZoneInfo("Europe/Bucharest"))
-        if not (start <= d_ro < end):
+        if not d or not (start <= d < end):
             continue
         status=str(e.get("status") or "").lower()
         if days < 0:
