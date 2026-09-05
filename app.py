@@ -138,7 +138,7 @@ def search():
     if not key:return jsonify({"error":"Lipsește API Key"}),401
     q=request.get_json(silent=True) or {}
     try:
-        days=max(0,int(q.get("days",1)))
+        days=int(q.get("days",1))
         min_prob=float(q.get("min_prob",0)); min_edge=float(q.get("min_edge",0))
         omin=float(q.get("odds_min",1)); omax=float(q.get("odds_max",100))
         maxp=max(1,int(q.get("max_picks",30)))
