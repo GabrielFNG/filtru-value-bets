@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import requests, os
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 API_BASE = "https://sports.bzzoiro.com/api"
@@ -156,12 +157,37 @@ def search():
         return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
     except Exception as e:return jsonify({"error":f"Eroare API: {e}"}),502
 
-    now=datetime.now(timezone.utc); end=now+timedelta(days=days)
+    now=datetime.now(timezone.utc)
+    # Date window rules:
+    # 0  = calendar day today (Romania time), 00:00-23:59:59
+    # >0 = next N*24 hours from the moment of search
+    # <0 = previous N*24 hours from the moment of search
+    if days == 0:
+        local_now=now.astimezone(ZoneInfo("Europe/Bucharest"))
+        local_start=local_now.replace(hour=0,minute=0,second=0,microsecond=0)
+        local_end=local_start+timedelta(days=1)
+        start=local_start.astimezone(timezone.utc)
+        end=local_end.astimezone(timezone.utc)
+    elif days > 0:
+        start=now
+        end=now+timedelta(days=days)
+    else:
+        start=now+timedelta(days=days)
+        end=now
+
     ev=[]
     for e in events:
-        d=dt(e); status=str(e.get("status") or "").lower()
-        if d and now <= d <= end and status in ("","notstarted","scheduled","timed","upcoming"):
+        d=dt(e)
+        if not d or not (start <= d < end):
+            continue
+        status=str(e.get("status") or "").lower()
+        if days < 0:
+            # For historical windows keep finished/unknown events; the result
+            # checker will use the actual score when available.
             ev.append(e)
+        else:
+            if status in ("","notstarted","scheduled","timed","upcoming"):
+                ev.append(e)
 
     # ALL predictions are retained per event. Nothing is reduced to ps[0].
     by={}
@@ -171,6 +197,12 @@ def search():
 
     leagues=sorted({league(e) for e in ev if league(e)!="Necunoscută"})
     team_names=sorted({t for e in ev for t in teams(e) if t and t!="?"})
+    teams_by_league={}
+    for e in ev:
+        lg=league(e)
+        if lg=="Necunoscută": continue
+        teams_by_league.setdefault(lg,set()).update(t for t in teams(e) if t and t!="?")
+    teams_by_league={k:sorted(v) for k,v in teams_by_league.items()}
     candidates=[]; matched=withprob=withodds=tested=0
 
     for e in ev:
@@ -240,7 +272,7 @@ def search():
 
     return jsonify({
         "candidates":candidates,
-        "events":len(ev),"predictions":len(predictions),"leagues":leagues,"teams":team_names,
+        "events":len(ev),"predictions":len(predictions),"leagues":leagues,"teams":team_names,"teams_by_league":teams_by_league,
         "matched":matched,"with_probabilities":withprob,
         "with_odds":withodds,"tested":tested,
         "mode":"ALL_EDGES" if mode=="all_edges" else "FILTERED",
