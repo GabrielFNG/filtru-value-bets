@@ -1,57 +1,468 @@
-<!doctype html>
-<html lang="ro">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>🎯 Filtru Value Bets</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#101418;color:#eee}.wrap{max-width:1200px;margin:auto;padding:22px}.card{background:#181e24;border:1px solid #2c343d;border-radius:16px;padding:22px;box-shadow:0 10px 35px #0005}h1{margin:0 0 8px;font-size:28px}.muted{color:#9da7b1;font-size:14px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tab{border:0;border-radius:10px;padding:12px 18px;background:#252c33;color:#eee;font-weight:bold;cursor:pointer}.tab.active{background:#20c8e8;color:#061217}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}label{display:block;color:#aeb7c0;font-size:13px;margin-bottom:6px}input,select{width:100%;padding:12px;border-radius:9px;border:1px solid #3b444e;background:#20272e;color:#fff;font-size:15px}button.search{width:100%;margin-top:18px;padding:14px;border:0;border-radius:10px;background:#20c8e8;color:#061217;font-size:16px;font-weight:bold;cursor:pointer}.summary{margin-top:16px;color:#b9c2ca}.table-wrap{overflow:auto;margin-top:14px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{text-align:left;padding:12px;border-bottom:1px solid #2c343d}th{color:#8f9aa5;font-size:12px;text-transform:uppercase}.edge{font-weight:bold}.good{color:#58e58b}.bad{color:#ff7272}.empty{padding:28px;text-align:center;color:#9da7b1}.pickbtn{border:1px solid #3b444e;background:#20272e;color:#fff;border-radius:8px;padding:7px 10px;cursor:pointer}.pickbtn.on{background:#20c8e8;color:#061217;border-color:#20c8e8}.status{font-weight:bold}.navtabs{display:flex;gap:8px;margin:18px 0}.navtab{border:0;border-radius:10px;padding:10px 15px;background:#252c33;color:#eee;font-weight:bold;cursor:pointer}.navtab.active{background:#20c8e8;color:#061217}.danger{background:#2b2020;border:1px solid #5a3434;color:#ffaaaa;padding:8px 12px;border-radius:8px;cursor:pointer}@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.wrap{padding:10px}.card{padding:15px}.grid{grid-template-columns:1fr}}
-</style></head>
-<body><div class="wrap"><div class="card">
-<h1>🎯 Filtru Value Bets</h1>
-<div class="muted">v12 — filtre active + Selecțiile mele + Istoric + perioade trecute</div>
-<div class="navtabs"><button class="navtab active" data-view="bets">Value Bets</button><button class="navtab" data-view="selected">🎯 Selecțiile mele</button><button class="navtab" data-view="history">📚 Istoric</button></div>
-<div id="betsView">
-<div style="margin-top:12px"><label>Mod analiză</label><select id="mode"><option value="filtered" selected>Value Bets — filtre active</option><option value="all_edges">Toate edge-urile — fără filtre numerice</option></select></div>
-<div style="margin-top:16px"><label>Cheia API Bzzoiro</label><input id="api_key" type="password" autocomplete="off" placeholder="Token API"><label style="display:flex;align-items:center;gap:8px;margin-top:8px;color:#9da7b1"><input id="save_key" type="checkbox" style="width:auto"> salvează cheia pe dispozitiv</label></div>
-<div class="tabs"><button class="tab active" data-market="1x2">1X2</button><button class="tab" data-market="gg">GG</button><button class="tab" data-market="goals">Peste/Sub goluri</button><button class="tab" data-market="all">Toate piețele</button></div>
-<div class="grid">
-<div><label>Zile înainte <span class="muted">(0 = azi; -1 = ultimele 24h; -2 = ultimele 48h)</span></label><input id="days" type="number" min="-30" value="1"></div>
-<div><label>Ligă / competiție</label><select id="league"><option value="all">Toate ligile</option></select></div>
-<div><label>Echipă</label><select id="team"><option value="all">Toate echipele</option></select></div>
-<div><label>Probabilitate minimă (%)</label><input id="min_prob" type="number" min="0" max="100" step="0.1" value="0"></div>
-<div><label>Edge minim (pp)</label><input id="min_edge" type="number" step="0.1" value="0"></div>
-<div><label>Cotă minimă</label><input id="odds_min" type="number" min="1" step="0.01" value="1"></div>
-<div><label>Cotă maximă</label><input id="odds_max" type="number" min="1" step="0.01" value="100"></div>
-<div><label>Max. selecții</label><input id="max_picks" type="number" min="1" value="30"></div>
-<div id="selection_box"><label>Selecție</label><select id="selection"><option value="all">Toate</option></select></div>
-<div id="line_box" style="display:none"><label>Linie goluri</label><select id="line"><option value="0.5">0.5</option><option value="1.5">1.5</option><option value="2.5" selected>2.5</option><option value="3.5">3.5</option><option value="4.5">4.5</option></select></div>
-</div><button class="search" id="search">🔎 Caută value bets</button><div class="summary" id="summary">Aștept căutarea...</div>
-<div class="table-wrap"><table><thead><tr><th>Selectează</th><th>Meci</th><th>Ligă</th><th>Piață / selecție</th><th>Prob.</th><th>Cotă</th><th>Edge</th></tr></thead><tbody id="rows"></tbody></table></div>
-</div>
-<div id="selectedView" style="display:none"><div class="summary" id="selectedSummary"></div><div class="table-wrap"><table><thead><tr><th>Data selecției</th><th>Meci</th><th>Ligă</th><th>Piață / selecție</th><th>Prob.</th><th>Cotă</th><th>Edge</th><th>Status</th><th></th></tr></thead><tbody id="selectedRows"></tbody></table></div></div>
-<div id="historyView" style="display:none"><div class="summary" id="historySummary"></div><button class="danger" id="clearHistory">Șterge istoricul</button><div class="table-wrap"><table><thead><tr><th>Data selecției</th><th>Data meciului</th><th>Meci</th><th>Ligă</th><th>Piață / selecție</th><th>Prob.</th><th>Cotă</th><th>Edge</th><th>Rezultat</th></tr></thead><tbody id="historyRows"></tbody></table></div></div>
-</div></div>
-<script>
-let market="1x2", currentCandidates=[], teamsByLeague={};
-const KEY="bzzoiro_api_key", SEL="vb_selected_v11", HIST="vb_history_v11";
-const $=id=>document.getElementById(id); const tabs=[...document.querySelectorAll('.tab')];
-function read(k){try{return JSON.parse(localStorage.getItem(k)||'[]')}catch{return[]}} function write(k,v){localStorage.setItem(k,JSON.stringify(v))}
-function updateControls(){const s=$('selection');s.innerHTML='';if(market==='1x2'){[['all','Toate'],['home','1 — Gazde'],['draw','X — Egal'],['away','2 — Oaspeți']].forEach(x=>s.add(new Option(x[1],x[0])))}else if(market==='gg'){[['all','Toate'],['yes','GG Da'],['no','GG Nu']].forEach(x=>s.add(new Option(x[1],x[0])))}else if(market==='goals'){[['all','Toate'],['over','Peste'],['under','Sub']].forEach(x=>s.add(new Option(x[1],x[0])))}else s.add(new Option('Toate','all'));$('selection_box').style.display=market==='all'?'none':'block';$('line_box').style.display=market==='goals'||market==='all'?'block':'none'}
-tabs.forEach(t=>t.onclick=()=>{tabs.forEach(x=>x.classList.remove('active'));t.classList.add('active');market=t.dataset.market;updateControls()});
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function keyFor(x){return [x.event_id,x.market,x.pick,x.odds].join('|')}
-function dateOnly(s){if(!s)return '';return new Date(s).toLocaleDateString('ro-RO')}
-function fmtDT(s){if(!s)return '';const d=new Date(s);return isNaN(d)?esc(s):d.toLocaleString('ro-RO')}
-function selectedKeys(){return new Set(read(SEL).map(x=>x.key))}
-function renderCandidates(){const rows=$('rows'), keys=selectedKeys();rows.innerHTML='';currentCandidates.forEach((x,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td><button class="pickbtn ${keys.has(keyFor(x))?'on':''}" data-i="${i}">${keys.has(keyFor(x))?'✓ Selectat':'☐ Selectează'}</button></td><td>${esc(x.home)} — ${esc(x.away)}<br><span class="muted">${fmtDT(x.kickoff)}</span></td><td>${esc(x.league)}</td><td>${esc(x.market)} · <b>${esc(x.pick)}</b></td><td>${Number(x.prob).toFixed(1)}%</td><td>${Number(x.odds).toFixed(2)}</td><td class="edge ${Number(x.edge)>=0?'good':'bad'}">${Number(x.edge)>=0?'+':''}${Number(x.edge).toFixed(1)} pp</td>`;rows.appendChild(tr)});if(!currentCandidates.length)rows.innerHTML='<tr><td colspan="7" class="empty">Nicio selecție nu îndeplinește filtrele.</td></tr>';rows.querySelectorAll('.pickbtn').forEach(b=>b.onclick=()=>togglePick(Number(b.dataset.i)))}
-function togglePick(i){const x=currentCandidates[i];if(!x)return;let a=read(SEL),k=keyFor(x),idx=a.findIndex(z=>z.key===k);if(idx>=0)a.splice(idx,1);else a.push({...x,key:k,selected_at:new Date().toISOString(),result_status:'În așteptare',result:null});write(SEL,a);renderCandidates();renderSelected();}
-function renderSelected(){const a=read(SEL),r=$('selectedRows');r.innerHTML='';$('selectedSummary').textContent=`${a.length} selecții în așteptare / salvate`;a.forEach((x,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${fmtDT(x.selected_at)}</td><td>${esc(x.home)} — ${esc(x.away)}<br><span class="muted">${fmtDT(x.kickoff)}</span></td><td>${esc(x.league)}</td><td>${esc(x.market)} · <b>${esc(x.pick)}</b></td><td>${Number(x.prob).toFixed(1)}%</td><td>${Number(x.odds).toFixed(2)}</td><td class="edge ${Number(x.edge)>=0?'good':'bad'}">${Number(x.edge)>=0?'+':''}${Number(x.edge).toFixed(1)} pp</td><td class="status">${statusHtml(x)}</td><td><button class="pickbtn" data-i="${i}">Elimină</button></td>`;r.appendChild(tr)});if(!a.length)r.innerHTML='<tr><td colspan="9" class="empty">Nu ai selecții salvate.</td></tr>';r.querySelectorAll('.pickbtn').forEach(b=>b.onclick=()=>{let z=read(SEL);z.splice(Number(b.dataset.i),1);write(SEL,z);renderSelected();renderCandidates()})}
-function statusHtml(x){if(x.result_status==='Corect')return '<span class="good">🟢 Corect</span>';if(x.result_status==='Greșit')return '<span class="bad">🔴 Greșit</span>';if(x.result)return esc(x.result);return '⚪ În așteptare'}
-function renderHistory(){const a=read(HIST).sort((x,y)=>new Date(y.selected_at)-new Date(x.selected_at)),r=$('historyRows');r.innerHTML='';$('historySummary').textContent=`${a.length} selecții în istoric`;a.forEach(x=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${fmtDT(x.selected_at)}</td><td>${dateOnly(x.kickoff)}</td><td>${esc(x.home)} — ${esc(x.away)}</td><td>${esc(x.league)}</td><td>${esc(x.market)} · <b>${esc(x.pick)}</b></td><td>${Number(x.prob).toFixed(1)}%</td><td>${Number(x.odds).toFixed(2)}</td><td class="edge ${Number(x.edge)>=0?'good':'bad'}">${Number(x.edge)>=0?'+':''}${Number(x.edge).toFixed(1)} pp</td><td class="status">${statusHtml(x)}${x.score?'<br><span class="muted">'+esc(x.score)+'</span>':''}</td>`;r.appendChild(tr)});if(!a.length)r.innerHTML='<tr><td colspan="9" class="empty">Istoricul este gol.</td></tr>'}
-async function checkResults(){const a=read(SEL);if(!a.length)return;let key=$('api_key').value.trim()||localStorage.getItem(KEY)||'';if(!key)return;try{const ids=[...new Set(a.map(x=>x.event_id).filter(Boolean))];const r=await fetch('/api/check_results',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Token '+key},body:JSON.stringify({event_ids:ids})});if(!r.ok)return;const d=await r.json(),res=d.results||{};let changed=false;const remain=[];const hist=read(HIST);a.forEach(x=>{const q=res[String(x.event_id)];if(!q||q.home_score===null||q.away_score===null){remain.push(x);return}const hs=q.home_score,as=q.away_score;let ok=null;if(x.market==='1X2')ok=x.pick==='1'?hs>as:x.pick==='X'?hs===as:hs<as;else if(x.market==='GG')ok=x.pick==='GG Da'?(hs>0&&as>0):(hs===0||as===0);else if(x.market==='Peste/Sub goluri'){const line=Number(x.pick.split(' ')[1]);ok=x.pick.startsWith('Peste')?(hs+as>line):(hs+as<line)}if(ok===null){remain.push(x);return}x.result_status=ok?'Corect':'Greșit';x.result=`${hs}-${as}`;const hi=hist.findIndex(z=>z.key===x.key);if(hi>=0)hist[hi]=x;else hist.push(x);changed=true});if(changed){write(SEL,remain);write(HIST,hist);renderSelected();renderHistory();renderCandidates()}}catch(e){}}
-function populateTeams(leagueValue, keepValue){const s=$('team');const list=leagueValue==='all'?Object.values(teamsByLeague).flat(): (teamsByLeague[leagueValue]||[]);const uniq=[...new Set(list)].sort((a,b)=>a.localeCompare(b,'ro'));s.innerHTML='<option value="all">Toate echipele</option>';uniq.forEach(x=>s.add(new Option(x,x)));if(keepValue && uniq.includes(keepValue))s.value=keepValue;else s.value='all'}
-$('league').addEventListener('change',()=>populateTeams($('league').value,'all'));
-async function search(){const days=Number($('days').value||1);const payload={mode:$('mode').value,market,selection:$('selection').value,line:$('line').value,league:$('league').value,team:$('team').value,min_prob:Number($('min_prob').value||0),min_edge:Number($('min_edge').value||0),odds_min:Number($('odds_min').value||1),odds_max:Number($('odds_max').value||100),max_picks:Number($('max_picks').value||30),days};$('summary').textContent='Se caută...';$('rows').innerHTML='';let key=$('api_key').value.trim()||localStorage.getItem(KEY)||'';if(!key){$('summary').innerHTML='<span class="bad">Lipsește API Key.</span>';return}if($('save_key').checked)localStorage.setItem(KEY,key);try{const r=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Token '+key},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok){$('summary').innerHTML='<span class="bad">'+esc(d.error||'Eroare API')+'</span>';return}currentCandidates=d.candidates||[];const leagues=d.leagues||[];teamsByLeague=d.teams_by_league||{};const lv=$('league').value,tv=$('team').value;$('league').innerHTML='<option value="all">Toate ligile</option>';leagues.forEach(x=>$('league').add(new Option(x,x)));if(leagues.includes(lv))$('league').value=lv;populateTeams($('league').value,tv);$('summary').textContent=`${currentCandidates.length} selecții · ${d.events||0} meciuri · ${d.predictions||0} predicții · ${leagues.length} ligi`;renderCandidates();checkResults()}catch(e){$('summary').innerHTML='<span class="bad">Eroare de conexiune: '+esc(e.message)+'</span>'}}
-function switchView(v){$('betsView').style.display=v==='bets'?'block':'none';$('selectedView').style.display=v==='selected'?'block':'none';$('historyView').style.display=v==='history'?'block':'none';document.querySelectorAll('.navtab').forEach(b=>b.classList.toggle('active',b.dataset.view===v));if(v==='selected'){renderSelected();checkResults()}if(v==='history'){checkResults();renderHistory()}}
-document.querySelectorAll('.navtab').forEach(b=>b.onclick=()=>switchView(b.dataset.view));$('search').onclick=search;$('clearHistory').onclick=()=>{if(confirm('Ștergi tot istoricul?')){write(HIST,[]);renderHistory()}};const saved=localStorage.getItem(KEY);if(saved)$('api_key').value=saved;updateControls();renderSelected();renderHistory();
-</script></body></html>
+from flask import Flask, request, jsonify, send_from_directory
+import requests, os
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+
+app = Flask(__name__)
+API_BASE = "https://sports.bzzoiro.com/api"
+API_V2 = "https://sports.bzzoiro.com/api/v2"
+TIMEOUT = 25
+
+def get(path, key):
+    r = requests.get(API_BASE + path,
+        headers={"Authorization": f"Token {key}", "Accept":"application/json"},
+        timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+def all_results(path, key, pages=10):
+    out=[]; nxt=path
+    for _ in range(pages):
+        data=get(nxt,key)
+        out += data.get("results",[]) if isinstance(data,dict) else (data if isinstance(data,list) else [])
+        if not isinstance(data,dict) or not data.get("next"): break
+        nxt=data["next"]
+        for prefix in ("https://sports.bzzoiro.com/api","https://sports.bzzoiro.com"):
+            if nxt.startswith(prefix):
+                nxt=nxt[len(prefix):]; break
+    return out
+
+
+def get_v2(path, key):
+    r=requests.get(API_V2 + path,
+        headers={"Authorization": f"Token {key}", "Accept":"application/json"},
+        timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+def v2_results(path, key):
+    out=[]; nxt=path
+    for _ in range(20):
+        data=get_v2(nxt,key)
+        out += data.get("results",[]) if isinstance(data,dict) else (data if isinstance(data,list) else [])
+        if not isinstance(data,dict) or not data.get("next"): break
+        nxt=data["next"]
+        for prefix in (API_V2, "https://sports.bzzoiro.com"):
+            if nxt.startswith(prefix):
+                nxt=nxt[len(prefix):]
+                break
+    return out
+
+def normalize_v2_event(e, odds_map=None):
+    x=dict(e or {})
+    x["id"]=eid(e)
+    x["event_date"]=e.get("event_date") or e.get("kickoff") or e.get("start_time") or e.get("date")
+    if "home_team" not in x:
+        x["home_team"]=e.get("home") or e.get("home_name")
+    if "away_team" not in x:
+        x["away_team"]=e.get("away") or e.get("away_name")
+    if "league" not in x:
+        x["league"]=e.get("competition") or e.get("competition_name") or e.get("league_name")
+    # v2 score fields are already home_score / away_score on event objects.
+    if odds_map and str(x["id"]) in odds_map:
+        o=odds_map[str(x["id"])]
+        x.update(o)
+    return x
+
+def v2_odds_map(rows):
+    out={}
+    for r in rows:
+        event_id=r.get("event_id") or r.get("match_id")
+        if event_id is None:
+            continue
+        oid=str(event_id)
+        market=str(r.get("market") or "").lower()
+        outcome=str(r.get("outcome") or "").lower()
+        odd=num(r.get("decimal_odds") if r.get("decimal_odds") is not None else r.get("odds"))
+        if odd is None:
+            continue
+        out.setdefault(oid,{})
+        if market=="1x2":
+            if outcome=="home": out[oid]["odds_home"]=odd
+            elif outcome=="draw": out[oid]["odds_draw"]=odd
+            elif outcome=="away": out[oid]["odds_away"]=odd
+        elif market=="btts":
+            if outcome=="yes": out[oid]["odds_btts_yes"]=odd
+            elif outcome=="no": out[oid]["odds_btts_no"]=odd
+        elif market in ("over_under_05","over_under_15","over_under_25","over_under_35","over_under_45"):
+            line=market.replace("over_under_","")
+            if outcome=="over": out[oid]["odds_over_"+line]=odd
+            elif outcome=="under": out[oid]["odds_under_"+line]=odd
+    return out
+
+def normalize_v2_prediction(p):
+    x=dict(p or {})
+    ev=p.get("event")
+    if isinstance(ev,dict):
+        x["event"]=normalize_v2_event(ev)
+
+    m=p.get("markets") or {}
+    mr=m.get("match_result") or {}
+    ou=m.get("over_under") or {}
+    b=m.get("btts") or {}
+
+    if "prob_home_win" not in x: x["prob_home_win"]=mr.get("prob_home")
+    if "prob_draw" not in x: x["prob_draw"]=mr.get("prob_draw")
+    if "prob_away_win" not in x: x["prob_away_win"]=mr.get("prob_away")
+    if "prob_over_15" not in x: x["prob_over_15"]=ou.get("prob_over_15")
+    if "prob_over_25" not in x: x["prob_over_25"]=ou.get("prob_over_25")
+    if "prob_over_35" not in x: x["prob_over_35"]=ou.get("prob_over_35")
+    if "prob_btts_yes" not in x: x["prob_btts_yes"]=b.get("prob_yes")
+
+    # Keep the event's final score available to the existing result parser.
+    if isinstance(ev,dict):
+        for k in ("home_score","away_score","status"):
+            if k in ev:
+                x[k]=ev[k]
+    return x
+
+def fetch_history_window(key, start_ro, end_ro):
+    # Keep the stable v1 endpoints that already return embedded odds and
+    # prediction probabilities. Query a small UTC calendar buffer, then filter
+    # precisely in Romania time in /api/search.
+    api_from=(start_ro-timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+    api_to=(end_ro+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+    events=all_results(f"/events/?upcoming={'false' if start_ro < datetime.now(ZoneInfo('Europe/Bucharest')) else 'true'}&date_from={api_from}&date_to={api_to}",key)
+    predictions=all_results(f"/predictions/?upcoming={'false' if start_ro < datetime.now(ZoneInfo('Europe/Bucharest')) else 'true'}&date_from={api_from}&date_to={api_to}",key)
+
+    # Historical prediction records can contain the complete event object.
+    by_event={str(eid(e)):e for e in events if eid(e) is not None}
+    for p in predictions:
+        pe=p.get("event")
+        if isinstance(pe,dict) and eid(pe) is not None:
+            pid=str(eid(pe))
+            if pid not in by_event:
+                by_event[pid]=pe
+    return list(by_event.values()), predictions
+
+
+def num(x):
+    try: return float(x)
+    except: return None
+
+def eid(x):
+    if not isinstance(x,dict): return None
+    return x.get("id") or x.get("event_id") or x.get("match_id")
+
+def event_id_from_prediction(p):
+    e=p.get("event")
+    return eid(e) if isinstance(e,dict) else (p.get("event_id") or p.get("match_id"))
+
+def teams(e):
+    h=e.get("home_team"); a=e.get("away_team")
+    if isinstance(h,dict): h=h.get("name") or h.get("short_name")
+    if isinstance(a,dict): a=a.get("name") or a.get("short_name")
+    return str(h or "?"),str(a or "?")
+
+def league(e):
+    x=e.get("league")
+    if isinstance(x,dict): return str(x.get("name") or x.get("short_name") or "Necunoscută")
+    return str(x or e.get("league_name") or e.get("competition_name") or "Necunoscută")
+
+def dt(e):
+    s=e.get("event_date") or e.get("kickoff") or e.get("start_time")
+    if not s:return None
+    try:
+        d=datetime.fromisoformat(str(s).replace("Z","+00:00"))
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    except:return None
+
+def odds(e):
+    return {
+      "1":num(e.get("odds_home")),"X":num(e.get("odds_draw")),"2":num(e.get("odds_away")),
+      "gg_yes":num(e.get("odds_btts_yes")),"gg_no":num(e.get("odds_btts_no")),
+      "over_0.5":num(e.get("odds_over_05")),"under_0.5":num(e.get("odds_under_05")),
+      "over_1.5":num(e.get("odds_over_15")),"under_1.5":num(e.get("odds_under_15")),
+      "over_2.5":num(e.get("odds_over_25")),"under_2.5":num(e.get("odds_under_25")),
+      "over_3.5":num(e.get("odds_over_35")),"under_3.5":num(e.get("odds_under_35")),
+      "over_4.5":num(e.get("odds_over_45")),"under_4.5":num(e.get("odds_under_45"))
+    }
+
+def options(p):
+    out=[]
+    def add(m,pick,key,ok):
+        v=num(p.get(key))
+        if v is not None: out.append((m,pick,v,ok))
+    add("1X2","1","prob_home_win","1")
+    add("1X2","X","prob_draw","X")
+    add("1X2","2","prob_away_win","2")
+    b=num(p.get("prob_btts_yes"))
+    if b is not None:
+        out += [("GG","GG Da",b,"gg_yes"),("GG","GG Nu",100-b,"gg_no")]
+    for line in ("0.5","1.5","2.5","3.5","4.5"):
+        key=line.replace(".","")
+        v=num(p.get("prob_over_"+key))
+        if v is not None:
+            out += [("Peste/Sub goluri","Peste "+line,v,"over_"+line),
+                    ("Peste/Sub goluri","Sub "+line,100-v,"under_"+line)]
+    return out
+
+@app.get("/")
+def home(): return send_from_directory(app.root_path,"index.html")
+
+@app.get("/health")
+def health(): return jsonify({"ok":True})
+
+
+
+
+def score_from_prediction(p):
+    pairs=[
+        (p.get("home_score"),p.get("away_score")),
+        (p.get("score_home"),p.get("score_away")),
+        (p.get("home_team_score"),p.get("away_team_score")),
+        (p.get("goals_home"),p.get("goals_away")),
+    ]
+    sc=p.get("score")
+    if isinstance(sc,dict):
+        pairs += [(sc.get("home"),sc.get("away")),(sc.get("home_score"),sc.get("away_score"))]
+    for h,a in pairs:
+        hn,an=num(h),num(a)
+        if hn is not None and an is not None:
+            return int(hn),int(an)
+    return None,None
+
+def score_from_event(e):
+    pairs=[
+        (e.get("home_score"),e.get("away_score")),
+        (e.get("score_home"),e.get("score_away")),
+        (e.get("home_team_score"),e.get("away_team_score")),
+        (e.get("goals_home"),e.get("goals_away")),
+    ]
+    sc=e.get("score")
+    if isinstance(sc,dict):
+        pairs += [(sc.get("home"),sc.get("away")),(sc.get("home_score"),sc.get("away_score"))]
+    for h,a in pairs:
+        hn,an=num(h),num(a)
+        if hn is not None and an is not None:
+            return int(hn),int(an)
+    return None,None
+
+@app.post("/api/check_results")
+def check_results():
+    key=request.headers.get("Authorization","").replace("Token ","").strip()
+    if not key:return jsonify({"error":"Lipsește API Key"}),401
+    q=request.get_json(silent=True) or {}
+    ids={str(x) for x in (q.get("event_ids") or [])}
+    if not ids:return jsonify({"results":{}})
+    try:
+        now=datetime.now(ZoneInfo("Europe/Bucharest"))
+        date_from=(now-timedelta(days=30)).astimezone(timezone.utc).date().isoformat()
+        date_to=(now+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+        events=all_results(f"/events/?upcoming=false&date_from={date_from}&date_to={date_to}",key)
+        predictions=all_results(f"/predictions/?upcoming=false&date_from={date_from}&date_to={date_to}",key)
+    except requests.HTTPError as e:
+        st=e.response.status_code if e.response is not None else 502
+        return jsonify({"error":f"Bzzoiro HTTP {st}"}),st
+    except Exception as e:
+        return jsonify({"error":f"Eroare API: {e}"}),502
+
+    out={}
+    by_event={str(eid(e)):e for e in events if eid(e) is not None}
+    for p in predictions:
+        pe=p.get("event")
+        if isinstance(pe,dict) and eid(pe) is not None and str(eid(pe)) not in by_event:
+            by_event[str(eid(pe))]=pe
+
+    for sid in ids:
+        e=by_event.get(sid)
+        if not e:
+            continue
+        h,a=score_from_event(e)
+        if h is not None and a is not None:
+            out[sid]={
+                "status":str(e.get("status") or "finished").lower(),
+                "home_score":h,
+                "away_score":a
+            }
+    return jsonify({"results":out})
+
+
+@app.post("/api/debug_window")
+def debug_window():
+    key=request.headers.get("Authorization","").replace("Token ","").strip()
+    if not key:return jsonify({"error":"Lipsește API Key"}),401
+    q=request.get_json(silent=True) or {}
+    try: days=int(q.get("days",0))
+    except: days=0
+    try:
+        ro_now=datetime.now(ZoneInfo("Europe/Bucharest"))
+        if days < 0:
+            ws=ro_now+timedelta(days=days); we=ro_now
+        elif days==0:
+            ws=ro_now.replace(hour=0,minute=0,second=0,microsecond=0); we=ws+timedelta(days=1)
+        else:
+            ws=ro_now; we=ro_now+timedelta(days=days)
+        af=(ws-timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+        at=(we+timedelta(days=1)).astimezone(timezone.utc).date().isoformat()
+        modes=["true","false"] if days==0 else (["false"] if days<0 else ["true"])
+        report={"days":days,"window_start":ws.isoformat(),"window_end":we.isoformat(),
+                "api_from":af,"api_to":at,"modes":modes,"calls":[]}
+        for up in modes:
+            es=all_results(f"/events/?upcoming={up}&date_from={af}&date_to={at}",key)
+            ps=all_results(f"/predictions/?upcoming={up}&date_from={af}&date_to={at}",key)
+            eids={str(eid(e)) for e in es if eid(e) is not None}
+            peids={str(event_id_from_prediction(p)) for p in ps if event_id_from_prediction(p) is not None}
+            overlap=len(eids & peids)
+            inwin=0
+            for e in es:
+                d=dt(e)
+                if d:
+                    dr=d.astimezone(ZoneInfo("Europe/Bucharest"))
+                    if ws<=dr<we: inwin+=1
+            report["calls"].append({"upcoming":up,"events":len(es),"predictions":len(ps),
+                                    "event_ids":len(eids),"prediction_event_ids":len(peids),
+                                    "overlap":overlap,"events_in_exact_window":inwin,
+                                    "sample_prediction_ids":[event_id_from_prediction(p) for p in ps[:5]]})
+        return jsonify(report)
+    except Exception as e:
+        return jsonify({"error":f"{type(e).__name__}: {e}"}),502
+
+@app.post("/api/search")
+def search():
+    key=request.headers.get("Authorization","").replace("Token ","").strip()
+    if not key:return jsonify({"error":"Lipsește API Key"}),401
+    q=request.get_json(silent=True) or {}
+    try:
+        days=int(q.get("days",1))
+        min_prob=float(q.get("min_prob",0)); min_edge=float(q.get("min_edge",0))
+        omin=float(q.get("odds_min",1)); omax=float(q.get("odds_max",100))
+        maxp=max(1,int(q.get("max_picks",30)))
+    except:return jsonify({"error":"Filtre numerice invalide"}),400
+
+    mode=str(q.get("mode","filtered"))
+    if mode not in ("filtered","all_edges"): mode="filtered"
+    mf=str(q.get("market","all")); sf=str(q.get("selection","all"))
+    lf=str(q.get("line","2.5")); league_filter=str(q.get("league","all")); team_filter=str(q.get("team","all"))
+
+    try:
+        # Active BSD v2: date_from/date_to are supported directly and pagination
+        # is limit/offset. We still apply the exact Romania-time window locally.
+        ro_now=datetime.now(ZoneInfo("Europe/Bucharest"))
+        if days < 0:
+            window_start=ro_now+timedelta(days=days)
+            window_end=ro_now
+        elif days == 0:
+            window_start=ro_now.replace(hour=0,minute=0,second=0,microsecond=0)
+            window_end=window_start+timedelta(days=1)
+        else:
+            window_start=ro_now
+            window_end=ro_now+timedelta(days=days)
+
+        events,predictions=fetch_history_window(key,window_start,window_end)
+    except requests.HTTPError as e:
+        s=e.response.status_code if e.response is not None else 502
+        return jsonify({"error":f"Bzzoiro HTTP {s}"}),s
+    except Exception as e:return jsonify({"error":f"Eroare API: {e}"}),502
+
+    start=window_start
+    end=window_end
+    ev=[]
+    for e in events:
+        d=dt(e)
+        if not d:
+            continue
+        d_ro=d.astimezone(ZoneInfo("Europe/Bucharest"))
+        if not (start <= d_ro < end):
+            continue
+        status=str(e.get("status") or "").lower()
+        if days < 0:
+            # For historical windows keep finished/unknown events; the result
+            # checker will use the actual score when available.
+            ev.append(e)
+        else:
+            if status in ("","notstarted","scheduled","timed","upcoming"):
+                ev.append(e)
+
+    # ALL predictions are retained per event. Nothing is reduced to ps[0].
+    by={}
+    for p in predictions:
+        pid=event_id_from_prediction(p)
+        if pid is not None: by.setdefault(str(pid),[]).append(p)
+
+    leagues=sorted({league(e) for e in ev if league(e)!="Necunoscută"})
+    team_names=sorted({t for e in ev for t in teams(e) if t and t!="?"})
+    teams_by_league={}
+    for e in ev:
+        lg=league(e)
+        if lg=="Necunoscută": continue
+        teams_by_league.setdefault(lg,set()).update(t for t in teams(e) if t and t!="?")
+    teams_by_league={k:sorted(v) for k,v in teams_by_league.items()}
+    candidates=[]; matched=withprob=withodds=tested=0
+
+    for e in ev:
+        lg=league(e)
+        h,a=teams(e)
+        if league_filter!="all" and lg!=league_filter: continue
+        if team_filter!="all" and team_filter not in (h,a): continue
+        ps=by.get(str(eid(e)),[])
+        if not ps: continue
+        matched+=1
+        eo=odds(e)
+        if any(v is not None for v in eo.values()): withodds+=1
+
+        # Analyze EVERY prediction belonging to this event.
+        # IMPORTANT: do not deduplicate by market/pick/odds.
+        # Bzzoiro can return multiple prediction records for the same event,
+        # and the user wants all prediction records to be evaluated.
+        event_has_prob=False
+        for p in ps:
+            ops=options(p)
+            if ops: event_has_prob=True
+            for mk,pick,prob,okey in ops:
+                # Every prediction record is evaluated independently.
+                tested+=1
+
+                if mf!="all":
+                    if mf=="1x2" and mk!="1X2": continue
+                    if mf=="gg" and mk!="GG": continue
+                    if mf=="goals" and mk!="Peste/Sub goluri": continue
+                if mk=="Peste/Sub goluri" and mf=="goals" and not pick.endswith(lf): continue
+
+                if sf!="all":
+                    if mk=="1X2" and {"home":"1","draw":"X","away":"2"}.get(sf) not in (None,pick): continue
+                    if mk=="GG" and {"yes":"GG Da","no":"GG Nu"}.get(sf) not in (None,pick): continue
+                    if mk=="Peste/Sub goluri":
+                        wanted={"over":"Peste","under":"Sub"}.get(sf)
+                        if wanted and not pick.startswith(wanted+" "): continue
+
+                odd=eo.get(okey)
+                if odd is None or odd<=1: continue
+
+                implied=100/odd
+                edge=prob-implied
+
+                # v10: in normal Value Bets mode all numeric filters are active.
+                # In ALL_EDGES mode they are intentionally bypassed so the full
+                # calculable edge distribution can still be inspected.
+                if mode=="filtered":
+                    if prob < min_prob: continue
+                    if edge < min_edge: continue
+                    if odd < omin or odd > omax: continue
+
+                candidates.append({
+                    "home":h,"away":a,"league":lg,"market":mk,"pick":pick,
+                    "prob":round(prob,2),"odds":round(odd,2),
+                    "implied":round(implied,2),"edge":round(edge,2),
+                    "kickoff":e.get("event_date","") ,
+                    "event_id":eid(e),
+                    "status":e.get("status","")
+                })
+        if event_has_prob: withprob+=1
+
+    # Sort by highest value first and apply Max. selecții only in filtered mode.
+    candidates.sort(key=lambda x:(x["edge"],x["prob"]),reverse=True)
+    if mode=="filtered":
+        candidates=candidates[:maxp]
+
+    return jsonify({
+        "candidates":candidates,
+        "events":len(ev),"predictions":len(predictions),"leagues":leagues,"teams":team_names,"teams_by_league":teams_by_league,
+        "matched":matched,"with_probabilities":withprob,
+        "with_odds":withodds,"tested":tested,
+        "mode":"ALL_EDGES" if mode=="all_edges" else "FILTERED",
+        "filters_applied":(["days","league","team","market","selection","goal_line"] if mode=="all_edges" else ["days","league","market","selection","goal_line","min_prob","min_edge","odds_min","odds_max","max_picks"])
+    })
+
+if __name__=="__main__":
+    app.run(host="0.0.0.0",port=int(os.environ.get("PORT",8080)))
